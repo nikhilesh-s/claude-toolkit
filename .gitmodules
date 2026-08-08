@@ -1,0 +1,3 @@
+[submodule "skills/task-observer"]
+	path = skills/task-observer
+	url = https://github.com/rebelytics/one-skill-to-rule-them-all.git
