@@ -328,6 +328,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | simpy | K-Dense-AI/claude-scientific-skills | Build, inspect, test, and analyze bounded process-based discrete-event simulations with SimPy, including events, resources, interrupts, m... |
 | stable-baselines3 | K-Dense-AI/claude-scientific-skills | Production-ready reinforcement learning algorithms (PPO, SAC, DQN, TD3, DDPG, A2C) with scikit-learn-like API. Use for standard RL experi... |
 | statistical-analysis | K-Dense-AI/claude-scientific-skills | Guided statistical analysis for research data - test selection, assumption checking, effect sizes, power analysis, Bayesian alternatives,... |
+| statistical-power | K-Dense-AI/claude-scientific-skills | Sample-size and statistical power calculations for planning studies. Use whenever someone asks "how many subjects/samples/replicates do I... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
