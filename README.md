@@ -413,6 +413,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | web-asset-generator | web-asset-generator-marketplace | Generate favicons, app icons, and social media images from logos, text, or emojis. Features emoji suggestions, WCAG validation, and automatic framework integration for Next.js, Astro, SvelteKit, and more. |
 | writing-lean-proofs | trailofbits | Structured Lean 4 proof writing and library design following Mathlib conventions |
 | yara-authoring | trailofbits | YARA-X detection rule authoring with linting and quality analysis |
+| zeroize-audit | trailofbits | Detects missing or compiler-optimized zeroization of sensitive data with assembly and control-flow analysis |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
