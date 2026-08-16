@@ -276,6 +276,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | paperzilla | K-Dense-AI/claude-scientific-skills | Chat with your agent about projects, recommendations, and canonical papers in Paperzilla. Use when users ask for recent project recommend... |
 | parallel-web | K-Dense-AI/claude-scientific-skills | Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitorin... |
 | pathml | K-Dense-AI/claude-scientific-skills | Use PathML for local, research-only computational pathology workflows: load and tile slides, build preprocessing and QC pipelines, manage... |
+| pathogen-variant-surveillance | K-Dense-AI/claude-scientific-skills | Query live pathogen genomic surveillance data through the GenSpectrum LAPIS API to find which viral lineages are circulating now, how fas... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
