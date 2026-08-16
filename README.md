@@ -366,6 +366,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | claude-code-setup | claude-plugins-official | Analyze codebases and recommend tailored Claude Code automations such as hooks, skills, MCP servers, and subagents. |
 | claude-in-chrome-troubleshooting | trailofbits | Diagnose and fix Claude in Chrome MCP extension connectivity issues |
 | claude-mem | thedotmack | Persistent memory system for Claude Code - context compression across sessions |
+| code-simplifier | claude-plugins-official | Agent that simplifies and refines code for clarity, consistency, and maintainability while preserving functionality. Focuses on recently modified code. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
