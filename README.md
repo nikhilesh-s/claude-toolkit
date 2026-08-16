@@ -239,6 +239,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | hypothesis-generation | K-Dense-AI/claude-scientific-skills | Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating... |
 | imaging-data-commons | K-Dense-AI/claude-scientific-skills | Query and download public cancer imaging data from NCI Imaging Data Commons. Invoke for any question about IDC collections, cancer imagin... |
 | infographics | K-Dense-AI/claude-scientific-skills | Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Inte... |
+| iso-standards-readiness | K-Dense-AI/claude-scientific-skills | Prepares and structurally reviews readiness evidence for ISO management-system and laboratory-competence standards - ISO 13485 medical de... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
