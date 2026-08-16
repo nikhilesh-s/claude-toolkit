@@ -383,6 +383,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | frontend-slides | frontend-slides | Zero-dependency HTML presentation generator with safe presets, bold template-library styles, PPT conversion, and anti-AI-slop design philosophy. |
 | gh-cli | trailofbits | Intercepts GitHub URL fetches and curl/wget commands, redirecting to the authenticated gh CLI. |
 | git-cleanup | trailofbits | Safely analyzes and cleans up local git branches and worktrees by categorizing them as merged, squash-merged, superseded, or active work. |
+| github-triage | trailofbits | Triages a repository's open GitHub issues and pull requests via the gh CLI: optionally merges ready bot and maintainer-approved PRs and spawns review subagents for unreviewed ones, closes already-resolved issues with referenced explanations, cross-links issues with pending fix PRs, and assigns local-only priority and change-size estimates. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
