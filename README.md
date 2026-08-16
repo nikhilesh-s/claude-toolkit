@@ -267,6 +267,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | onekgpd | K-Dense-AI/claude-scientific-skills | > |
 | ontology-term-resolution | K-Dense-AI/claude-scientific-skills | Resolve free-text scientific labels to ontology term IDs and validate existing CURIEs against the EBI Ontology Lookup Service (OLS4). Use... |
 | open-notebook | K-Dense-AI/claude-scientific-skills | Self-hosted, open-source alternative to Google NotebookLM for AI-powered research and document analysis. Use when organizing research mat... |
+| openpiv | K-Dense-AI/claude-scientific-skills | Particle Image Velocimetry (PIV) analysis with OpenPIV. Use when extracting velocity fields from PIV image pairs, analyzing fluid dynamic... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
