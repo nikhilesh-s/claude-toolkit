@@ -208,7 +208,10 @@ fetched via `initial_instructions`) tell Claude to prefer its tools over built-i
 - **Cross-reference**: `find_referencing_symbols` to see what calls/imports a symbol before changing it.
 - It auto-activates whichever project directory Claude is running in (LSP index + optional per-project
   "memories" via `read_memory`/`write_memory`, unrelated to claude-mem — code-symbol-scoped, not
-  conversation-scoped) and stores that state in `.serena/` in the project root, gitignored.
+  conversation-scoped) and stores that state in `.serena/` in the project root. Serena's own
+  nested `.serena/.gitignore` excludes the regenerable LSP `cache/` and the machine-specific
+  `project.local.yml`; `.serena/project.yml` (language servers, encoding, tool settings) is
+  plain config with no secrets, so it's tracked here like any other project setting.
 
 - Runs via `uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context
   claude-code --project-from-cwd` — spawned as a background process, one language server per
@@ -225,8 +228,14 @@ fetched via `initial_instructions`) tell Claude to prefer its tools over built-i
 ## All skills (171)
 
 Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s
-frontmatter, regenerate with `/private/tmp/claude-501/-Users-arnavkakani-claude-toolkit/ce153388-579d-4fd6-86db-8d6bcf71f1ef/scratchpad/categorize.py` (reads `~/claude-toolkit/skills/*/SKILL.md`
-directly, so it's always ground truth, not a stale snapshot). `humanizer`, `ste-writing`, and
+frontmatter. Regenerate after adding or removing a skill:
+```bash
+uv run python scripts/categorize_skills.py --check   # flags anything uncategorized, exits 1 if so
+uv run python scripts/categorize_skills.py            # prints the replacement section
+```
+It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale snapshot — a new
+skill shows up as "uncategorized" in `--check` rather than silently missing from this list.
+`humanizer`, `ste-writing`, and
 `task-observer` also have full write-ups above; everything else was bulk-installed on 2026-08-16
 from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chrisvoncsefalvay/claude-d3js-skill`, and
 `K-Dense-AI/claude-scientific-skills` (via `travisvn/awesome-claude-skills`). Same symlink
@@ -555,7 +564,6 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | writing-lean-proofs | trailofbits | Structured Lean 4 proof writing and library design following Mathlib conventions |
 | yara-authoring | trailofbits | YARA-X detection rule authoring with linting and quality analysis |
 | zeroize-audit | trailofbits | Detects missing or compiler-optimized zeroization of sensitive data with assembly and control-flow analysis |
-<!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
 
