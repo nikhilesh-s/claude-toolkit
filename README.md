@@ -211,6 +211,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | depmap | K-Dense-AI/claude-scientific-skills | Query the Cancer Dependency Map (DepMap) for cancer cell line gene dependency scores (CRISPR Chronos), drug sensitivity data, and gene ef... |
 | dhdna-profiler | K-Dense-AI/claude-scientific-skills | Extract cognitive patterns and thinking fingerprints from any text. Use this skill when the user wants to analyze how someone thinks, und... |
 | diffdock | K-Dense-AI/claude-scientific-skills | DiffDock and DiffDock-L molecular docking. Use for protein-small-molecule pose prediction from PDB or sequence plus SMILES/SDF/MOL2, batc... |
+| dnanexus-integration | K-Dense-AI/claude-scientific-skills | Build and operate reproducible genomics workloads on DNAnexus with the dx CLI, dxpy, apps/applets, native workflows, dxCompiler, and Next... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
