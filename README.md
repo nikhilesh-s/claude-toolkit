@@ -394,6 +394,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | playwright-skill | playwright-skill | Agent Skill for general-purpose browser automation with Playwright. The agent writes and executes custom scripts for testing pages, validating UX, and automating browser tasks. |
 | property-based-testing | trailofbits | Property-based testing guidance for multiple languages and smart contracts |
 | pyright-lsp | claude-plugins-official | Python language server (Pyright) for type checking and code intelligence |
+| rust-review | trailofbits | Comprehensive Rust security code review with specialized bug-finding agents covering the safe/unsafe boundary, memory safety in unsafe blocks, concurrency, panic-induced DoS, recursion-induced stack overflow, FFI, and async runtime hazards |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
