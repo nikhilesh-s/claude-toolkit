@@ -317,6 +317,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | scientific-schematics | K-Dense-AI/claude-scientific-skills | Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality ... |
 | scientific-slides | K-Dense-AI/claude-scientific-skills | Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, r... |
 | scientific-visualization | K-Dense-AI/claude-scientific-skills | Create and audit truthful, accessible, publication-ready scientific figures with Matplotlib, Seaborn, or Plotly. Use for figure design, m... |
+| scientific-writing | K-Dense-AI/claude-scientific-skills | Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship ac... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
