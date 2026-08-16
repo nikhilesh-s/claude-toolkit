@@ -313,6 +313,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | scanpy | K-Dense-AI/claude-scientific-skills | Standard single-cell RNA-seq analysis pipeline. Use for QC, normalization, dimensionality reduction (PCA/UMAP/t-SNE), clustering, differe... |
 | scholar-evaluation | K-Dense-AI/claude-scientific-skills | Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics wi... |
 | scientific-brainstorming | K-Dense-AI/claude-scientific-skills | Facilitates evidence-aware scientific ideation with independent generation, structured discussion, explicit assumptions, transparent eval... |
+| scientific-critical-thinking | K-Dense-AI/claude-scientific-skills | Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, appl... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
