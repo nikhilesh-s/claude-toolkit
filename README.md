@@ -258,6 +258,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | modal | K-Dense-AI/claude-scientific-skills | Modal is a serverless cloud platform for running Python on demand, including on-demand GPUs. Use when deploying or serving AI/ML models, ... |
 | molecular-dynamics | K-Dense-AI/claude-scientific-skills | Run and analyze molecular dynamics simulations with OpenMM and MDAnalysis. Set up protein/small molecule systems, define force fields, ru... |
 | molfeat | K-Dense-AI/claude-scientific-skills | Molecular featurization for ML (100+ featurizers). ECFP, MACCS, descriptors, pretrained models (ChemBERTa), convert SMILES to features, f... |
+| ncats-arax | K-Dense-AI/claude-scientific-skills | Queries the NCATS Translator ARAX production API for bounded, typed, provenance-rich one-hop and endpoint-pinned two-hop biomedical knowl... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
