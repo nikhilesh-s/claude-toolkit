@@ -372,6 +372,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | devcontainer-setup | trailofbits | Create pre-configured devcontainers with Claude Code and language-specific tooling |
 | differential-review | trailofbits | Security-focused differential review of code changes with git history analysis and blast radius estimation |
 | dimensional-analysis | trailofbits | Annotates codebases with dimensional analysis comments documenting units, dimensions, and decimal scaling. Use when someone asks to annotate units in a codebase, perform a dimensional analysis, or find vulnerabilities in a DeFi protocol. Prevents dimensional mismatches and catches formula bugs early. |
+| document-skills | anthropic-agent-skills | Collection of document processing suite including Excel, Word, PowerPoint, and PDF capabilities |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
