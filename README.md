@@ -381,6 +381,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | firebase-apk-scanner | trailofbits | Scan Android APKs for Firebase security misconfigurations including open databases, storage buckets, authentication issues, and exposed cloud functions. For authorized security research only. |
 | fp-check | trailofbits | Systematic false positive verification for security bug analysis with mandatory gate reviews |
 | frontend-slides | frontend-slides | Zero-dependency HTML presentation generator with safe presets, bold template-library styles, PPT conversion, and anti-AI-slop design philosophy. |
+| gh-cli | trailofbits | Intercepts GitHub URL fetches and curl/wget commands, redirecting to the authenticated gh CLI. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
