@@ -340,6 +340,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | treatment-plans | K-Dense-AI/claude-scientific-skills | Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by a... |
 | umap-learn | K-Dense-AI/claude-scientific-skills | Use UMAP-learn for nonlinear dimensionality reduction, 2D/3D embeddings, clustering preprocessing, supervised or semi-supervised UMAP, De... |
 | uncertainty-and-units | K-Dense-AI/claude-scientific-skills | Track physical units and propagate measurement uncertainty in scientific calculations using pint and uncertainties. Use for unit conversi... |
+| usfiscaldata | K-Dense-AI/claude-scientific-skills | Query the U.S. Treasury Fiscal Data REST API for federal financial data. No API key required. Use for national debt (Debt to the Penny), ... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
