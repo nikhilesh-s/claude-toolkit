@@ -400,6 +400,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | semgrep-rule-variant-creator | trailofbits | Creates language variants of existing Semgrep rules with proper applicability analysis and test-driven validation |
 | sharp-edges | trailofbits | Identify error-prone APIs, dangerous configurations, and footgun designs that enable security mistakes |
 | skill-improver | trailofbits | Automatically reviews and fixes Claude Code skills through iterative refinement until they meet quality standards. Requires plugin-dev plugin. |
+| spec-to-code-compliance | trailofbits | Check code against the documentation that specifies it: one agent per requirement, divergences refuted before they are reported, evidence cited to the line |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
