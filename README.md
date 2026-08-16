@@ -235,6 +235,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | gtars | K-Dense-AI/claude-scientific-skills | Use Gtars for local genomic interval models and set algebra, overlaps and counts, consensus and coverage, tokenization, fragment processi... |
 | histolab | K-Dense-AI/claude-scientific-skills | Lightweight WSI tile extraction and preprocessing. Use for basic slide processing, tissue detection, tile extraction, and stain normaliza... |
 | hugging-science | K-Dense-AI/claude-scientific-skills | Use when the user is doing AI/ML work in a scientific domain such as biology, chemistry, physics, astronomy, climate, genomics, materials... |
+| hypogenic | K-Dense-AI/claude-scientific-skills | Plans and audits use of ChicagoHAI HypoGeniC/HypoRefine for LLM-assisted hypothesis generation from labeled text datasets. Use for the `h... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
