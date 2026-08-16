@@ -246,6 +246,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | latchbio-integration | K-Dense-AI/claude-scientific-skills | Build, register, debug, and operate bioinformatics workflows on Latch using the Python SDK, CLI, Latch Data and Registry, Nextflow, Snake... |
 | latex-posters | K-Dense-AI/claude-scientific-skills | Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic... |
 | liteparse | K-Dense-AI/claude-scientific-skills | Local document and PDF parsing that returns spatial text with bounding boxes. Use for extracting text from PDFs, DOCX, Office files, and ... |
+| literature-review | K-Dense-AI/claude-scientific-skills | Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). ... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
