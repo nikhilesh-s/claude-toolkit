@@ -295,6 +295,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | pydicom | K-Dense-AI/claude-scientific-skills | Use pydicom to read, inspect, write, transform, and safely preflight local DICOM datasets and pixel data. Applies to DICOM metadata, tran... |
 | pyhealth | K-Dense-AI/claude-scientific-skills | Build clinical/healthcare deep-learning pipelines with PyHealth — loading EHR/signal/imaging datasets (MIMIC-III/IV, eICU, OMOP, SleepEDF... |
 | pylabrobot | K-Dense-AI/claude-scientific-skills | Develop and review PyLabRobot lab-automation resources, liquid-handling plans, offline simulations, and supported-device integrations. Us... |
+| pymatgen | K-Dense-AI/claude-scientific-skills | Analyze, validate, convert, and transform materials structures and computed materials data with current pymatgen APIs, including local ph... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
