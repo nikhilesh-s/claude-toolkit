@@ -334,6 +334,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | tamarind | K-Dense-AI/claude-scientific-skills | Access a collection of open-source molecular design and structural biology tools on the Tamarind Bio platform, via its REST API or MCP se... |
 | tiledbvcf | K-Dense-AI/claude-scientific-skills | Efficient storage and retrieval of genomic variant data using TileDB. Scalable VCF/BCF ingestion, incremental sample addition, compressed... |
 | timesfm-forecasting | K-Dense-AI/claude-scientific-skills | Zero-shot time series forecasting with Google's TimesFM foundation model. Use for any univariate time series (sales, sensors, energy, vit... |
+| torch-geometric | K-Dense-AI/claude-scientific-skills | PyTorch Geometric (PyG) for graph neural networks — node/link/graph classification, message passing (GCN, GAT, GraphSAGE, GIN), heterogen... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
