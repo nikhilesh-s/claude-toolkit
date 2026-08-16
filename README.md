@@ -397,6 +397,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | rust-review | trailofbits | Comprehensive Rust security code review with specialized bug-finding agents covering the safe/unsafe boundary, memory safety in unsafe blocks, concurrency, panic-induced DoS, recursion-induced stack overflow, FFI, and async runtime hazards |
 | second-opinion | trailofbits | Runs code reviews using external LLM CLIs (OpenAI Codex, Google Gemini) on uncommitted changes, branch diffs, or specific commits. Bundles Codex's built-in MCP server for direct tool access. |
 | semgrep-rule-creator | trailofbits | Create custom Semgrep rules for detecting bug patterns and security vulnerabilities |
+| semgrep-rule-variant-creator | trailofbits | Creates language variants of existing Semgrep rules with proper applicability analysis and test-driven validation |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
