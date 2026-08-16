@@ -385,6 +385,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | git-cleanup | trailofbits | Safely analyzes and cleans up local git branches and worktrees by categorizing them as merged, squash-merged, superseded, or active work. |
 | github-triage | trailofbits | Triages a repository's open GitHub issues and pull requests via the gh CLI: optionally merges ready bot and maintainer-approved PRs and spawns review subagents for unreviewed ones, closes already-resolved issues with referenced explanations, cross-links issues with pending fix PRs, and assigns local-only priority and change-size estimates. |
 | insecure-defaults | trailofbits | Detects insecure default configurations including hardcoded credentials, fallback secrets, weak authentication defaults, and dangerous values in production |
+| ios-simulator-skill | conorluddy | 29 production-ready scripts for iOS app testing, building, and automation |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
