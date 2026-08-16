@@ -205,6 +205,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | dask | K-Dense-AI/claude-scientific-skills | Distributed computing for larger-than-RAM pandas/NumPy workflows. Use when you need to scale existing pandas/NumPy code beyond memory or ... |
 | database-lookup | K-Dense-AI/claude-scientific-skills | Query documented public database APIs with explicit endpoints, filters, pagination, and provenance. Use when a scientific, regulatory, fi... |
 | datamol | K-Dense-AI/claude-scientific-skills | Pythonic wrapper around RDKit with simplified interface and sensible defaults. Preferred for standard drug discovery including SMILES par... |
+| deepchem | K-Dense-AI/claude-scientific-skills | Molecular ML with diverse featurizers and pre-built datasets. Use for property prediction (ADMET, toxicity) with traditional ML or GNNs w... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
