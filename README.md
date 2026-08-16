@@ -290,6 +290,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | pptx-posters | K-Dense-AI/claude-scientific-skills | Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the... |
 | primekg | K-Dense-AI/claude-scientific-skills | Query the Precision Medicine Knowledge Graph (PrimeKG) for multiscale biological data including genes, drugs, diseases, phenotypes, and m... |
 | protocolsio-integration | K-Dense-AI/claude-scientific-skills | Read, validate, and safely export protocols.io data with current official REST/MCP contracts, or create non-executing mutation plans. The... |
+| pufferlib | K-Dense-AI/claude-scientific-skills | Version-aware guidance for PufferLib reinforcement-learning environments, vectorization, policies, PuffeRL training, evaluation, and safe... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
