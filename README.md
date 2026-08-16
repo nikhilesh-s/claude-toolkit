@@ -314,6 +314,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | scholar-evaluation | K-Dense-AI/claude-scientific-skills | Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics wi... |
 | scientific-brainstorming | K-Dense-AI/claude-scientific-skills | Facilitates evidence-aware scientific ideation with independent generation, structured discussion, explicit assumptions, transparent eval... |
 | scientific-critical-thinking | K-Dense-AI/claude-scientific-skills | Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, appl... |
+| scientific-schematics | K-Dense-AI/claude-scientific-skills | Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality ... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
