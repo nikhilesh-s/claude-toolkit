@@ -330,6 +330,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | statistical-analysis | K-Dense-AI/claude-scientific-skills | Guided statistical analysis for research data - test selection, assumption checking, effect sizes, power analysis, Bayesian alternatives,... |
 | statistical-power | K-Dense-AI/claude-scientific-skills | Sample-size and statistical power calculations for planning studies. Use whenever someone asks "how many subjects/samples/replicates do I... |
 | statsmodels | K-Dense-AI/claude-scientific-skills | Statistical models library for Python. Use when you need specific model classes (OLS, GLM, mixed models, ARIMA) with detailed diagnostics... |
+| sympy | K-Dense-AI/claude-scientific-skills | Use when you need exact symbolic math in Python — algebra, calculus, equation solving, symbolic linear algebra, or code generation via la... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
