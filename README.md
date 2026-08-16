@@ -386,6 +386,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | github-triage | trailofbits | Triages a repository's open GitHub issues and pull requests via the gh CLI: optionally merges ready bot and maintainer-approved PRs and spawns review subagents for unreviewed ones, closes already-resolved issues with referenced explanations, cross-links issues with pending fix PRs, and assigns local-only priority and change-size estimates. |
 | insecure-defaults | trailofbits | Detects insecure default configurations including hardcoded credentials, fallback secrets, weak authentication defaults, and dangerous values in production |
 | ios-simulator-skill | conorluddy | 29 production-ready scripts for iOS app testing, building, and automation |
+| let-fate-decide | trailofbits | Draws the 12 Houses of the Zodiac Tarot spread using cryptographic randomness to add 100+ bits of entropy to vague or underspecified planning. Interprets the spread to guide next steps. Use when feeling lucky, invoking heart-of-the-cards energy, or when prompts are ambiguous. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
