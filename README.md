@@ -323,6 +323,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | scikit-survival | K-Dense-AI/claude-scientific-skills | Build, evaluate, and audit right-censored or competing-risk survival workflows with scikit-survival, including leakage-safe preprocessing... |
 | scvelo | K-Dense-AI/claude-scientific-skills | RNA velocity analysis with scVelo. Estimate cell state transitions from unspliced/spliced mRNA dynamics, infer trajectory directions, com... |
 | scvi-tools | K-Dense-AI/claude-scientific-skills | Deep generative models for single-cell omics. Use when you need probabilistic batch correction (scVI), transfer learning, differential ex... |
+| seaborn | K-Dense-AI/claude-scientific-skills | Statistical visualization with pandas integration. Use for quick exploration of distributions, relationships, and categorical comparisons... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
