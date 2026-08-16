@@ -410,6 +410,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | variant-analysis | trailofbits | Find similar vulnerabilities and bugs across codebases using pattern-based analysis |
 | vulnerability-triage-brocards | trailofbits | Principled framework for triaging vulnerability reports using 7 brocards (rules of thumb). Evaluates incoming CVEs, bug bounty submissions, and security findings against structured dismissal/acceptance criteria before escalating to deeper analysis. |
 | warp | claude-code-warp | Native Warp notifications when Claude completes tasks or needs input |
+| web-asset-generator | web-asset-generator-marketplace | Generate favicons, app icons, and social media images from logos, text, or emojis. Features emoji suggestions, WCAG validation, and automatic framework integration for Next.js, Astro, SvelteKit, and more. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
