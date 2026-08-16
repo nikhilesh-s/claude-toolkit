@@ -393,6 +393,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | open-sourcing | trailofbits | Prepares a repository for public open-source release: secrets-history hygiene, license selection, documentation and CI readiness checks, and language-specific packaging and release guidance. |
 | playwright-skill | playwright-skill | Agent Skill for general-purpose browser automation with Playwright. The agent writes and executes custom scripts for testing pages, validating UX, and automating browser tasks. |
 | property-based-testing | trailofbits | Property-based testing guidance for multiple languages and smart contracts |
+| pyright-lsp | claude-plugins-official | Python language server (Pyright) for type checking and code intelligence |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
