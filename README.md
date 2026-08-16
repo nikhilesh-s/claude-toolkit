@@ -274,6 +274,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | paper-lookup | K-Dense-AI/claude-scientific-skills | Search 11 academic literature APIs for papers, preprints, citations, and open-access full text, and return results with reproducible prov... |
 | paperclip | K-Dense-AI/claude-scientific-skills | Search and read full-text biomedical papers, FDA/PMDA/EMA regulatory documents, clinical trial registries, and UniProt/PDB/ChEMBL entries... |
 | paperzilla | K-Dense-AI/claude-scientific-skills | Chat with your agent about projects, recommendations, and canonical papers in Paperzilla. Use when users ask for recent project recommend... |
+| parallel-web | K-Dense-AI/claude-scientific-skills | Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitorin... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
