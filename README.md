@@ -202,6 +202,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | cobrapy | K-Dense-AI/claude-scientific-skills | Constraint-based metabolic modeling (COBRA). FBA, FVA, gene knockouts, flux sampling, SBML models, for systems biology and metabolic engi... |
 | consciousness-council | K-Dense-AI/claude-scientific-skills | Run a multi-perspective Mind Council deliberation on any question, decision, or creative challenge. Use this skill whenever the user want... |
 | d3-viz | chrisvoncsefalvay/claude-d3js-skill | Creating interactive data visualisations using d3.js. This skill should be used when creating custom charts, graphs, network diagrams, ge... |
+| dask | K-Dense-AI/claude-scientific-skills | Distributed computing for larger-than-RAM pandas/NumPy workflows. Use when you need to scale existing pandas/NumPy code beyond memory or ... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
