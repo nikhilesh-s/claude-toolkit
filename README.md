@@ -265,6 +265,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | nextflow | K-Dense-AI/claude-scientific-skills | Build, run, and debug Nextflow data pipelines and nf-core workflows end to end. Use whenever the user mentions Nextflow, nf-core, .nf fil... |
 | omero-integration | K-Dense-AI/claude-scientific-skills | Securely inspect and automate microscopy data workflows against OMERO.server with omero-py, BlitzGateway, OMERO CLI, tables, annotations,... |
 | onekgpd | K-Dense-AI/claude-scientific-skills | > |
+| ontology-term-resolution | K-Dense-AI/claude-scientific-skills | Resolve free-text scientific labels to ontology term IDs and validate existing CURIEs against the EBI Ontology Lookup Service (OLS4). Use... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
