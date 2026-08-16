@@ -363,6 +363,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | burpsuite-project-parser | trailofbits | Search and extract data from Burp Suite project files (.burp) for security analysis |
 | c-review | trailofbits | Comprehensive C/C++ security code review with specialized bug-finding agents covering memory safety, type safety, concurrency, and Linux/Windows userspace-specific issues |
 | claude-api | anthropic-agent-skills | Claude API and SDK documentation skill for building LLM-powered applications |
+| claude-code-setup | claude-plugins-official | Analyze codebases and recommend tailored Claude Code automations such as hooks, skills, MCP servers, and subagents. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
