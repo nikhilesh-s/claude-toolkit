@@ -376,6 +376,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | dwarf-expert | trailofbits | Analyze DWARF debug information: parse and search DIEs with dwarfdump and readelf, verify debug info integrity, and write DWARF parsing code |
 | entry-point-analyzer | trailofbits | Analyzes smart contract codebases to identify state-changing entry points for security auditing. Detects externally callable functions that modify state, categorizes them by access level, and generates structured audit reports. |
 | example-skills | anthropic-agent-skills | Collection of example skills demonstrating various capabilities including skill creation, MCP building, visual design, algorithmic art, internal communications, web testing, artifact building, Slack GIFs, and theme styling |
+| expo | expo-plugins | Official Expo skills for building, deploying, upgrading, and debugging Expo apps. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
