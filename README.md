@@ -370,6 +370,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | constant-time-analysis | trailofbits | Detect compiler-induced timing side-channels in cryptographic code |
 | culture-index | trailofbits | Interprets Culture Index survey results for individuals and teams |
 | devcontainer-setup | trailofbits | Create pre-configured devcontainers with Claude Code and language-specific tooling |
+| differential-review | trailofbits | Security-focused differential review of code changes with git history analysis and blast radius estimation |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
