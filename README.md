@@ -249,6 +249,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | literature-review | K-Dense-AI/claude-scientific-skills | Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). ... |
 | markdown-mermaid-writing | K-Dense-AI/claude-scientific-skills | Comprehensive markdown and Mermaid diagram writing skill. Use when creating any scientific document, report, analysis, or visualization. ... |
 | market-research-reports | K-Dense-AI/claude-scientific-skills | Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, in... |
+| markitdown | K-Dense-AI/claude-scientific-skills | Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion.... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
