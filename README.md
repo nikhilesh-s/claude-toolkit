@@ -374,6 +374,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | dimensional-analysis | trailofbits | Annotates codebases with dimensional analysis comments documenting units, dimensions, and decimal scaling. Use when someone asks to annotate units in a codebase, perform a dimensional analysis, or find vulnerabilities in a DeFi protocol. Prevents dimensional mismatches and catches formula bugs early. |
 | document-skills | anthropic-agent-skills | Collection of document processing suite including Excel, Word, PowerPoint, and PDF capabilities |
 | dwarf-expert | trailofbits | Analyze DWARF debug information: parse and search DIEs with dwarfdump and readelf, verify debug info integrity, and write DWARF parsing code |
+| entry-point-analyzer | trailofbits | Analyzes smart contract codebases to identify state-changing entry points for security auditing. Detects externally callable functions that modify state, categorizes them by access level, and generates structured audit reports. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
