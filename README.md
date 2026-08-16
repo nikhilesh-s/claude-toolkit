@@ -261,6 +261,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | ncats-arax | K-Dense-AI/claude-scientific-skills | Queries the NCATS Translator ARAX production API for bounded, typed, provenance-rich one-hop and endpoint-pinned two-hop biomedical knowl... |
 | networkx | K-Dense-AI/claude-scientific-skills | Create, analyze, and visualize complex networks and graphs in Python with NetworkX. Use when working with network/graph data structures, ... |
 | neurokit2 | K-Dense-AI/claude-scientific-skills | Use NeuroKit2 to build or audit reproducible research workflows for physiological time-series preprocessing, event/interval analysis, mul... |
+| neuropixels-analysis | K-Dense-AI/claude-scientific-skills | Analyze Neuropixels extracellular recordings end-to-end with SpikeInterface. Covers loading SpikeGLX/Open Ephys/NWB data, preprocessing, ... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
