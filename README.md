@@ -21,6 +21,7 @@ Everything Claude Code related on this machine, in one place. Set up 2026-08-08.
 | [claude-code-setup](#claude-code-setup) | Plugin | ✅ active |
 | [OmniRoute](#omniroute) | Standalone gateway | ⚠️ running, MCP not wired |
 | [Headroom](#headroom) | macOS app | ⛔ not installed |
+| [Serena](#serena) | MCP server (code intel) | ✅ active, auto-starts |
 
 **Skills** genuinely live here — `~/.claude/skills/` contains only symlinks pointing back into
 `skills/`, so edit files here and the change is live. **Plugins and OmniRoute don't** — they
@@ -171,6 +172,35 @@ local compression pipeline, claiming ~50% token savings.
   any tapped repo as of 2026-08-08. Use the `.dmg` from
   https://github.com/gglucass/headroom-desktop/releases/latest
 - Requires macOS 14+ on Apple Silicon. This machine is macOS 26.4 / arm64 — compatible.
+
+## Serena
+
+Semantic code-navigation MCP server ([oraios/serena](https://github.com/oraios/serena)) — LSP-backed
+symbol tools (`find_symbol`, `find_referencing_symbols`, `replace_symbol_body`, etc.) that stand in for
+grep/Read/Edit on coding tasks. Not installed deliberately — it's a dependency the `zeroize-audit`
+plugin (from the `trailofbits` marketplace) pulls in and starts automatically.
+
+**How it's used:** you don't call it directly. Its own instructions ("Serena Instructions Manual",
+fetched via `initial_instructions`) tell Claude to prefer its tools over built-ins once loaded:
+- **Reading**: `get_symbols_overview` for a file's structure, then `find_symbol` with `include_body=True`
+  for the specific symbol — plain `Read` is "forbidden for discovery" per its own rules.
+- **Editing**: `replace_symbol_body` / `insert_after_symbol` / `insert_before_symbol` for symbol-level
+  changes, `rename_symbol` / `safe_delete_symbol` for reference-aware refactors, `replace_content` for
+  sub-symbol edits — plain `Edit` is "forbidden" once Serena's tools are loaded for that turn.
+- **Cross-reference**: `find_referencing_symbols` to see what calls/imports a symbol before changing it.
+- It auto-activates whichever project directory Claude is running in (LSP index + optional per-project
+  "memories" via `read_memory`/`write_memory`, unrelated to claude-mem — code-symbol-scoped, not
+  conversation-scoped) and stores that state in `.serena/` in the project root, gitignored.
+
+- Runs via `uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context
+  claude-code --project-from-cwd` — spawned as a background process, one language server per
+  configured language (this repo: just `bash`).
+- **Dashboard**: http://127.0.0.1:24282/dashboard/index.html — live log of every tool call the server
+  makes, plus a shutdown button. Mirrored by a macOS menu-bar tray icon
+  (`SerenaDashboardTrayManager`) — same thing, native chrome.
+- To stop it: find and kill the `serena start-mcp-server` process and the
+  `SerenaDashboardTrayManager` process (`pgrep -fl serena`), or just avoid invoking a skill/plugin
+  that depends on it (currently only `zeroize-audit`).
 
 ---
 
