@@ -302,6 +302,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | pysam | K-Dense-AI/claude-scientific-skills | Python/HTSlib workflows for genomic files. Use when reading, querying, filtering, or writing SAM/BAM/CRAM, VCF/BCF, FASTA/FASTQ, or tabix... |
 | pytdc | K-Dense-AI/claude-scientific-skills | Use Therapeutics Data Commons through the PyTDC Python package for registry discovery, approved dataset access, task-aware splits, evalua... |
 | pytorch-lightning | K-Dense-AI/claude-scientific-skills | Deep learning framework (PyTorch Lightning / lightning package). Organize PyTorch code into LightningModules, configure Trainers for mult... |
+| pyzotero | K-Dense-AI/claude-scientific-skills | Interact with Zotero reference management libraries using the pyzotero Python client. Retrieve, create, update, and delete items, collect... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
