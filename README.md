@@ -174,6 +174,23 @@ local compression pipeline, claiming ~50% token savings.
 
 ---
 
+## Bulk-installed skills (2026-08-16)
+
+Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chrisvoncsefalvay/claude-d3js-skill`, and `K-Dense-AI/claude-scientific-skills` (via `travisvn/awesome-claude-skills`). Same symlink convention as above: real files live in `skills/<name>/`, `~/.claude/skills/<name>` is a symlink.
+
+| Skill | Source | Description |
+|---|---|---|
+| adaptyv | K-Dense-AI/claude-scientific-skills | How to use the Adaptyv Bio Foundry API and Python SDK for protein experiment design, submission, and results retrieval. Use this skill wh... |
+<!-- BULK_SKILLS_ROWS -->
+
+## Bulk-installed plugins (2026-08-16)
+
+Installed via `claude plugin install` from marketplaces added the same day (superpowers, ai-toolkit, mattpocock, terrashark, anthropic-agent-skills, conorluddy, playwright-skill, web-asset-generator-marketplace, frontend-slides, expo-plugins, trailofbits, claude-plugins-official). Code isn't copied here — same convention as claude-mem/claude-code-setup above: this is just the index. Run `claude plugin list` for live status.
+
+| Plugin | Marketplace | Description |
+|---|---|---|
+<!-- BULK_PLUGINS_ROWS -->
+
 ## Maintenance
 
 ```bash
