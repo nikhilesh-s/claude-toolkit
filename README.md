@@ -401,6 +401,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | sharp-edges | trailofbits | Identify error-prone APIs, dangerous configurations, and footgun designs that enable security mistakes |
 | skill-improver | trailofbits | Automatically reviews and fixes Claude Code skills through iterative refinement until they meet quality standards. Requires plugin-dev plugin. |
 | spec-to-code-compliance | trailofbits | Check code against the documentation that specifies it: one agent per requirement, divergences refuted before they are reported, evidence cited to the line |
+| static-analysis | trailofbits | Static analysis toolkit with CodeQL, Semgrep, and SARIF parsing for security vulnerability detection |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
