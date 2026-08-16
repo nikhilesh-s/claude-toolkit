@@ -358,6 +358,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 |---|---|---|
 | agentic-actions-auditor | trailofbits | Audits GitHub Actions workflows for security vulnerabilities in AI agent integrations (Claude Code Action, Gemini CLI, OpenAI Codex, GitHub AI Inference) |
 | ai-toolkit | spartan-marketplace | Engineering discipline layer for Claude Code — workflows, rules, skills, agents organized in modular packs |
+| audit-context-building | trailofbits | Understand a codebase before looking for bugs in it. Reads it function by function, records what each one assumes and depends on, and saves the write-ups to files instead of filling up the conversation. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
