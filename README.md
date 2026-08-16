@@ -402,6 +402,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | skill-improver | trailofbits | Automatically reviews and fixes Claude Code skills through iterative refinement until they meet quality standards. Requires plugin-dev plugin. |
 | spec-to-code-compliance | trailofbits | Check code against the documentation that specifies it: one agent per requirement, divergences refuted before they are reported, evidence cited to the line |
 | static-analysis | trailofbits | Static analysis toolkit with CodeQL, Semgrep, and SARIF parsing for security vulnerability detection |
+| superpowers | superpowers-dev | Core skills library for Claude Code: TDD, debugging, collaboration patterns, and proven techniques |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
