@@ -337,6 +337,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | torch-geometric | K-Dense-AI/claude-scientific-skills | PyTorch Geometric (PyG) for graph neural networks — node/link/graph classification, message passing (GCN, GAT, GraphSAGE, GIN), heterogen... |
 | torchdrug | K-Dense-AI/claude-scientific-skills | Build and troubleshoot TorchDrug 0.2.1 workflows for molecular graphs, property prediction, self-supervised pretraining, molecule generat... |
 | transformers | K-Dense-AI/claude-scientific-skills | Hugging Face Transformers for loading Hub models, running pipeline inference, text generation, and Trainer fine-tuning on NLP, vision, au... |
+| treatment-plans | K-Dense-AI/claude-scientific-skills | Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by a... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
