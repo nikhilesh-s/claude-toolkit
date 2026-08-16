@@ -227,6 +227,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | genomic-coordinates | K-Dense-AI/claude-scientific-skills | Convert genomic intervals between coordinate conventions, normalise and compare variant representations, and detect assembly or contig-na... |
 | genomic-intelligence | K-Dense-AI/claude-scientific-skills | Predict regulatory features, gene structure, and expression directly from DNA sequence using Genomic Intelligence's hosted transformer DN... |
 | geomaster | K-Dense-AI/claude-scientific-skills | Comprehensive geospatial science skill covering remote sensing, GIS, spatial analysis, machine learning for earth observation, and 30+ sc... |
+| geopandas | K-Dense-AI/claude-scientific-skills | Guidance and local audit tools for Python workflows that directly use GeoPandas GeoSeries, GeoDataFrame, spatial operations, or vector-da... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
