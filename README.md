@@ -367,6 +367,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | claude-in-chrome-troubleshooting | trailofbits | Diagnose and fix Claude in Chrome MCP extension connectivity issues |
 | claude-mem | thedotmack | Persistent memory system for Claude Code - context compression across sessions |
 | code-simplifier | claude-plugins-official | Agent that simplifies and refines code for clarity, consistency, and maintainability while preserving functionality. Focuses on recently modified code. |
+| constant-time-analysis | trailofbits | Detect compiler-induced timing side-channels in cryptographic code |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
