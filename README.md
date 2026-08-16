@@ -362,6 +362,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | building-secure-contracts | trailofbits | Comprehensive smart contract security toolkit based on Trail of Bits' Building Secure Contracts framework. Includes vulnerability scanners for 6 blockchains and 5 development guideline assistants. |
 | burpsuite-project-parser | trailofbits | Search and extract data from Burp Suite project files (.burp) for security analysis |
 | c-review | trailofbits | Comprehensive C/C++ security code review with specialized bug-finding agents covering memory safety, type safety, concurrency, and Linux/Windows userspace-specific issues |
+| claude-api | anthropic-agent-skills | Claude API and SDK documentation skill for building LLM-powered applications |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
