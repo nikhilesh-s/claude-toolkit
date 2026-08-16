@@ -296,6 +296,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | pyhealth | K-Dense-AI/claude-scientific-skills | Build clinical/healthcare deep-learning pipelines with PyHealth — loading EHR/signal/imaging datasets (MIMIC-III/IV, eICU, OMOP, SleepEDF... |
 | pylabrobot | K-Dense-AI/claude-scientific-skills | Develop and review PyLabRobot lab-automation resources, liquid-handling plans, offline simulations, and supported-device integrations. Us... |
 | pymatgen | K-Dense-AI/claude-scientific-skills | Analyze, validate, convert, and transform materials structures and computed materials data with current pymatgen APIs, including local ph... |
+| pymc | K-Dense-AI/claude-scientific-skills | Bayesian modeling with PyMC. Build hierarchical models, MCMC (NUTS), variational inference, LOO/WAIC comparison, posterior checks, for pr... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
