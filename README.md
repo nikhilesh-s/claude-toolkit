@@ -308,6 +308,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | rdkit | K-Dense-AI/claude-scientific-skills | Cheminformatics toolkit for fine-grained molecular control. SMILES/SDF parsing, descriptors (MW, LogP, TPSA), fingerprints, substructure ... |
 | relsa-severity-assessment | K-Dense-AI/claude-scientific-skills | Multivariate severity assessment and humane endpoint prediction for laboratory animal studies using the RELSA (RELative Severity Assessme... |
 | research-grants | K-Dense-AI/claude-scientific-skills | Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget prepa... |
+| research-lookup | K-Dense-AI/claude-scientific-skills | Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature,... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
