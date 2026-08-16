@@ -343,6 +343,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | usfiscaldata | K-Dense-AI/claude-scientific-skills | Query the U.S. Treasury Fiscal Data REST API for federal financial data. No API key required. Use for national debt (Debt to the Penny), ... |
 | using-tmux-for-interactive-commands | obra/superpowers-lab | Use when you need to run interactive CLI tools (vim, git rebase -i, Python REPL, etc.) that require real-time input/output - provides tmu... |
 | vaex | K-Dense-AI/claude-scientific-skills | Use this skill for processing and analyzing large tabular datasets (billions of rows) that exceed available RAM. Vaex excels at out-of-co... |
+| venue-templates | K-Dense-AI/claude-scientific-skills | Prepare journal manuscripts, conference papers, research posters, and grant documents using venue-specific formatting guidance and bundle... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
