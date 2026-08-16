@@ -217,6 +217,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | etetoolkit | K-Dense-AI/claude-scientific-skills | Analyze, manipulate, compare, annotate, and visualize phylogenetic or other hierarchical trees with ETE 4. Use for Newick/Nexus tree I/O,... |
 | exa-search | K-Dense-AI/claude-scientific-skills | Web toolkit powered by Exa, tuned for scientific and technical content. Use this skill when the user needs to search the web or fetch/ext... |
 | experimental-design | K-Dense-AI/claude-scientific-skills | Design experiments and studies BEFORE data is collected — choosing a design, randomizing, blocking, and laying out treatment combinations... |
+| exploratory-data-analysis | K-Dense-AI/claude-scientific-skills | Perform bounded, local exploratory analysis of explicitly supported scientific files. Use for redacted CSV/TSV/JSON profiles; optional Nu... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
