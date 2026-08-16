@@ -280,6 +280,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | pathway-enrichment | K-Dense-AI/claude-scientific-skills | Run pathway and gene-set enrichment analysis on gene lists or ranked gene data, then interpret the results. Use whenever the user has a s... |
 | pdf | K-Dense-AI/claude-scientific-skills | Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combinin... |
 | peer-review | K-Dense-AI/claude-scientific-skills | Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific ... |
+| pennylane | K-Dense-AI/claude-scientific-skills | Hardware-agnostic quantum ML framework with automatic differentiation. Use when training quantum circuits via gradients, building hybrid ... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
