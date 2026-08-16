@@ -320,6 +320,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | scientific-writing | K-Dense-AI/claude-scientific-skills | Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship ac... |
 | scikit-bio | K-Dense-AI/claude-scientific-skills | Biological data toolkit. Sequence analysis, alignments, phylogenetic trees, diversity metrics (alpha/beta, UniFrac), ordination (PCoA), P... |
 | scikit-learn | K-Dense-AI/claude-scientific-skills | Machine learning in Python with scikit-learn. Use when working with supervised learning (classification, regression), unsupervised learni... |
+| scikit-survival | K-Dense-AI/claude-scientific-skills | Build, evaluate, and audit right-censored or competing-risk survival workflows with scikit-survival, including leakage-safe preprocessing... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
