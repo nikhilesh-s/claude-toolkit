@@ -345,6 +345,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | vaex | K-Dense-AI/claude-scientific-skills | Use this skill for processing and analyzing large tabular datasets (billions of rows) that exceed available RAM. Vaex excels at out-of-co... |
 | venue-templates | K-Dense-AI/claude-scientific-skills | Prepare journal manuscripts, conference papers, research posters, and grant documents using venue-specific formatting guidance and bundle... |
 | what-if-oracle | K-Dense-AI/claude-scientific-skills | Run structured What-If scenario analysis with 4–6 branch possibility exploration (best, likely, worst, wild card, contrarian, second-orde... |
+| windows-vm | obra/superpowers-lab | Create, manage, or connect to a headless Windows 11 VM running in Docker with SSH access. Use when the user wants to spin up, stop, resta... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
