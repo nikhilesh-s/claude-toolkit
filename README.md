@@ -389,6 +389,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | let-fate-decide | trailofbits | Draws the 12 Houses of the Zodiac Tarot spread using cryptographic randomness to add 100+ bits of entropy to vague or underspecified planning. Interprets the spread to guide next steps. Use when feeling lucky, invoking heart-of-the-cards energy, or when prompts are ambiguous. |
 | mattpocock-skills | mattpocock | Matt Pocock's agent skills for real engineering — grilling, spec/ticket flows, TDD, code review, domain modelling and more. |
 | modern-python | trailofbits | Modern Python best practices. Use when creating new Python projects, and writing Python scripts, or migrating existing projects from legacy tools. |
+| mutation-testing | trailofbits | Configures mewt or muton mutation testing campaigns — scopes targets, tunes timeouts, and optimizes long-running runs. Use when the user mentions mewt, muton, mutation testing, or wants to configure or optimize a mutation testing campaign. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
