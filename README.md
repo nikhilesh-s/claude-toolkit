@@ -380,6 +380,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | expo-experiments | expo-plugins | Experimental Expo skills for APIs that are not finalized. Skills graduate to the expo plugin when stable. |
 | firebase-apk-scanner | trailofbits | Scan Android APKs for Firebase security misconfigurations including open databases, storage buckets, authentication issues, and exposed cloud functions. For authorized security research only. |
 | fp-check | trailofbits | Systematic false positive verification for security bug analysis with mandatory gate reviews |
+| frontend-slides | frontend-slides | Zero-dependency HTML presentation generator with safe presets, bold template-library styles, PPT conversion, and anti-AI-slop design philosophy. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
