@@ -311,6 +311,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | research-lookup | K-Dense-AI/claude-scientific-skills | Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature,... |
 | rowan | K-Dense-AI/claude-scientific-skills | Rowan is a cloud-native molecular modeling and medicinal-chemistry workflow platform with a Python API. Use for pKa and macropKa predicti... |
 | scanpy | K-Dense-AI/claude-scientific-skills | Standard single-cell RNA-seq analysis pipeline. Use for QC, normalization, dimensionality reduction (PCA/UMAP/t-SNE), clustering, differe... |
+| scholar-evaluation | K-Dense-AI/claude-scientific-skills | Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics wi... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
