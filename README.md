@@ -378,6 +378,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | example-skills | anthropic-agent-skills | Collection of example skills demonstrating various capabilities including skill creation, MCP building, visual design, algorithmic art, internal communications, web testing, artifact building, Slack GIFs, and theme styling |
 | expo | expo-plugins | Official Expo skills for building, deploying, upgrading, and debugging Expo apps. |
 | expo-experiments | expo-plugins | Experimental Expo skills for APIs that are not finalized. Skills graduate to the expo plugin when stable. |
+| firebase-apk-scanner | trailofbits | Scan Android APKs for Firebase security misconfigurations including open databases, storage buckets, authentication issues, and exposed cloud functions. For authorized security research only. |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
