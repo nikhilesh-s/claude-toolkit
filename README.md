@@ -398,6 +398,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | second-opinion | trailofbits | Runs code reviews using external LLM CLIs (OpenAI Codex, Google Gemini) on uncommitted changes, branch diffs, or specific commits. Bundles Codex's built-in MCP server for direct tool access. |
 | semgrep-rule-creator | trailofbits | Create custom Semgrep rules for detecting bug patterns and security vulnerabilities |
 | semgrep-rule-variant-creator | trailofbits | Creates language variants of existing Semgrep rules with proper applicability analysis and test-driven validation |
+| sharp-edges | trailofbits | Identify error-prone APIs, dangerous configurations, and footgun designs that enable security mistakes |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
