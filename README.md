@@ -356,6 +356,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 
 | Plugin | Marketplace | Description |
 |---|---|---|
+| agentic-actions-auditor | trailofbits | Audits GitHub Actions workflows for security vulnerabilities in AI agent integrations (Claude Code Action, Gemini CLI, OpenAI Codex, GitHub AI Inference) |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
