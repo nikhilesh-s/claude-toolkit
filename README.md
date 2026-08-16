@@ -365,6 +365,7 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | claude-api | anthropic-agent-skills | Claude API and SDK documentation skill for building LLM-powered applications |
 | claude-code-setup | claude-plugins-official | Analyze codebases and recommend tailored Claude Code automations such as hooks, skills, MCP servers, and subagents. |
 | claude-in-chrome-troubleshooting | trailofbits | Diagnose and fix Claude in Chrome MCP extension connectivity issues |
+| claude-mem | thedotmack | Persistent memory system for Claude Code - context compression across sessions |
 <!-- BULK_PLUGINS_ROWS -->
 
 ## Maintenance
