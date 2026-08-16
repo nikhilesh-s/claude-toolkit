@@ -305,6 +305,7 @@ Installed in bulk from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chri
 | pyzotero | K-Dense-AI/claude-scientific-skills | Interact with Zotero reference management libraries using the pyzotero Python client. Retrieve, create, update, and delete items, collect... |
 | qiskit | K-Dense-AI/claude-scientific-skills | Build, simulate, transpile, and execute quantum circuits with Qiskit and IBM Quantum Runtime. Use for Qiskit 2.x circuits and operators, ... |
 | qutip | K-Dense-AI/claude-scientific-skills | Simulate and audit closed and open quantum-system models with QuTiP 5, including deterministic, trajectory, steady-state, spectral, and p... |
+| rdkit | K-Dense-AI/claude-scientific-skills | Cheminformatics toolkit for fine-grained molecular control. SMILES/SDF parsing, descriptors (MW, LogP, TPSA), fingerprints, substructure ... |
 <!-- BULK_SKILLS_ROWS -->
 
 ## Bulk-installed plugins (2026-08-16)
