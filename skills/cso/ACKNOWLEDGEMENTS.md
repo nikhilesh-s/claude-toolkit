@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/cso/ACKNOWLEDGEMENTS.md
+../gstack/cso/ACKNOWLEDGEMENTS.md

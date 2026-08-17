@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/setup-browser-cookies/SKILL.md
+../gstack/setup-browser-cookies/SKILL.md

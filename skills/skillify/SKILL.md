@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/skillify/SKILL.md
+../gstack/skillify/SKILL.md

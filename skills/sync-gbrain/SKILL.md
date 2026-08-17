@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/sync-gbrain/SKILL.md
+../gstack/sync-gbrain/SKILL.md

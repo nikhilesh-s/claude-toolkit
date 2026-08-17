@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/context-restore/SKILL.md
+../gstack/context-restore/SKILL.md

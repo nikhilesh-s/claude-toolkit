@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/review/TODOS-format.md
+../gstack/review/TODOS-format.md

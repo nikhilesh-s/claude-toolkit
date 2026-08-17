@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/benchmark-models/SKILL.md
+../gstack/benchmark-models/SKILL.md

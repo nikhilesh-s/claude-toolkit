@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/document-generate/SKILL.md
+../gstack/document-generate/SKILL.md

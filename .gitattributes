@@ -1,0 +1,7 @@
+# Nik's README is authoritative on this branch. A merge from upstream must never
+# overwrite it. Requires: git config merge.ours.driver true  (set by nik_sync_upstream.sh)
+README.md merge=ours
+
+# Same protection for the scripts that only exist on this branch.
+scripts/nik_*.py merge=ours
+scripts/nik_*.sh merge=ours

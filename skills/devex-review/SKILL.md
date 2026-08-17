@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/devex-review/SKILL.md
+../gstack/devex-review/SKILL.md

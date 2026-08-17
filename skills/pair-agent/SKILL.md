@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/pair-agent/SKILL.md
+../gstack/pair-agent/SKILL.md

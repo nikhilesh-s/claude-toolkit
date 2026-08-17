@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/setup-gbrain/memory.md
+../gstack/setup-gbrain/memory.md

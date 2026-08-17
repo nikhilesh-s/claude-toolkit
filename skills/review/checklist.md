@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/review/checklist.md
+../gstack/review/checklist.md
