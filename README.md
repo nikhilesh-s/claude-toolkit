@@ -24,8 +24,10 @@ editing them by hand.
 | Where do the skills go? | `~/.claude/skills/` **and** `~/.claude-nebula/skills/`, as symlinks back into this repo |
 | How many skills does this repo give me? | 230, all wired up, 0 broken |
 | How many more come from plugins? | 47 (28 Vercel + 19 claude-mem) |
-| How do I get Arnav's new skills? | `./scripts/nik_sync_upstream.sh` |
+| How do I get Arnav's new skills? | Automatically, 09:30 daily. See [Daily automatic sync](#daily-automatic-sync) |
+| Do his new **plugins** arrive too? | **No.** Git cannot carry a plugin. See [Plugins do not arrive through git](#plugins-do-not-arrive-through-git) |
 | Will that overwrite this README? | No. See [Staying in sync](#staying-in-sync-with-arnav) |
+| Does any of this work in both Claude apps? | Yes for skills — they are linked into both. Plugins must be installed twice. See [Two apps, two accounts](#two-apps-two-accounts-what-carries-over) |
 | What is actually running right now? | Very little. See [What is running](#what-is-running-and-what-is-not) |
 
 ```bash
@@ -58,6 +60,56 @@ started from the app cannot see anything that lives only in `~/.claude/skills/`.
 
 `scripts/nik_install_skills.sh` links into **both**, every time. That is why it exists. Do not
 hand-link a skill into one directory and assume it is installed.
+
+---
+
+## Two apps, two accounts: what carries over
+
+There are two separate things here that are easy to conflate.
+
+**Your Claude account** (personal vs Nebula Max) is a login. It decides which models you can
+reach, your rate limits, and your billing. It has nothing to do with which skills or plugins
+are on disk.
+
+**Your profile** (`default` vs `nebula`) is a folder. It decides which skills and plugins the
+agent can see. This is the one that matters here.
+
+So the rule is:
+
+> Skills and plugins follow the **profile folder**, not the account. Signing into a different
+> account in the same app changes nothing about what is installed. Opening the *other app*
+> changes everything, because it reads a different folder.
+
+What that means in practice on this machine:
+
+| Thing | Personal app (`~/.claude`) | Nebula app (`~/.claude-nebula`) | Kept in sync by |
+|---|---|---|---|
+| The 230 repo skills | yes | yes | `nik_install_skills.sh`, automatically |
+| `humanizer`, `parametric-3d-printing` | yes | yes | installed in both already |
+| Plugins (`brag`, `vercel`, `claude-mem`) | yes | yes | **you, by hand — twice** |
+| Plugin marketplaces | yes | yes | **you, by hand — twice** |
+| MCP servers from plugins | yes | yes | follows the plugin |
+| `blender` MCP server | yes | **no** | Desktop config, per profile |
+
+Arnav is right that it works for both — but only because that is what the install script was
+built to do. It is not automatic in Claude Code itself. Left alone, a skill linked into one
+profile is invisible in the other.
+
+**Plugins are the gap.** `claude plugin install` writes to whichever profile is active. There
+is no "install for both" flag. Install a plugin the normal way and it lands in exactly one
+profile, and you will be confused later when the other app cannot find it. Do this instead:
+
+```bash
+CB=/opt/homebrew/bin/claude    # not the `claude` shell alias — it expands to `claude code`
+                               # and silently swallows the `plugin` subcommand
+
+for D in "$HOME/.claude" "$HOME/.claude-nebula"; do
+  CLAUDE_CONFIG_DIR="$D" $CB plugin marketplace add <owner>/<repo>
+  CLAUDE_CONFIG_DIR="$D" $CB plugin install <name>@<marketplace>
+done
+```
+
+That loop is how `brag@brag` got into both. Use it for every plugin from now on.
 
 ---
 
@@ -122,6 +174,8 @@ that is not there. On this machine that is not hypothetical:
 | `vercel` (Vercel MCP server) | **OAuth to Vercel** | **not authorized.** A non-interactive session cannot run the flow — authorize from an interactive `claude` session |
 | claude-mem memory sync | Claude Desktop OAuth token | **expired** — re-login via Claude Desktop |
 | `blender` MCP server | nothing, but needs Blender running | `default` profile only; absent in `nebula` |
+| `brag@brag` — the launch-video plugin | Node 22+, FFmpeg, `npx hyperframes` | **installed in both profiles.** FFmpeg 9.0.1 installed 2026-08-16. `hyperframes doctor` passes every required check |
+| brag narration / local music | optional extras | not installed — `whisper-cpp`, Kokoro TTS, MusicGen, Docker all absent. Core video rendering does not need them |
 | 68 of the repo skills, to do real work | a third-party API key | none are set — see [Skills that name a credential](#skills-that-name-a-credential) |
 | OmniRoute MCP | an OmniRoute account | not created; daemon not running |
 
@@ -138,6 +192,7 @@ Checked live on 2026-08-16.
 
 | Thing | State | Port | To start it |
 |---|---|---|---|
+| Daily upstream sync (launchd) | **active**, 09:30 daily | — | see [Daily automatic sync](#daily-automatic-sync) |
 | claude-mem viewer | **up** | 37702 | starts with the plugin |
 | claude-mem worker | **down** | 37701 | `npx claude-mem start` |
 | claude-mem cloud sync | **blocked** | — | Desktop OAuth token expired; re-login via Claude Desktop |
@@ -245,6 +300,77 @@ It runs in this order:
 8. regenerates the inventory tables in this README from the new state
 
 Then commit, and **restart Claude Code** — skills load only at session start.
+
+### Daily automatic sync
+
+A launchd job runs `scripts/nik_daily_sync.sh` every day at **09:30**.
+
+`~/Library/LaunchAgents/com.nik.claude-toolkit-sync.plist` — the copy in
+`scripts/` is the tracked original.
+
+**launchd, not cron.** cron on macOS silently skips a job whose time passed while the machine
+was asleep. A laptop shut at 09:30 would just never sync. launchd runs a missed
+`StartCalendarInterval` job as soon as the machine wakes.
+
+It is deliberately timid, because unattended git that fights you is worse than none:
+
+| Situation | What it does |
+|---|---|
+| Another copy still running | exits |
+| Uncommitted work in the tree | exits, touches nothing |
+| Not on `nik-claude-toolkit` | exits |
+| Merge conflicts | **aborts the merge, restores the previous commit**, notifies you |
+| Push fails | keeps the local commit, notifies you |
+| Success | commits, pushes to `origin`, notifies you if skills changed |
+
+On success it also re-fixes upstream's absolute symlinks, relinks skills into both profiles,
+prunes links for skills upstream deleted, and regenerates the inventory below.
+
+```bash
+# check on it
+cat ~/Library/Logs/claude-toolkit/last-run.txt     # one-line verdict from the last run
+tail -40 ~/Library/Logs/claude-toolkit/sync.log    # full history, auto-rotated at 1 MB
+
+# run it now instead of waiting for 09:30
+launchctl kickstart -p gui/$(id -u)/com.nik.claude-toolkit-sync
+./scripts/nik_daily_sync.sh --dry-run              # report only, change nothing
+
+# turn it off / back on
+launchctl bootout gui/$(id -u)/com.nik.claude-toolkit-sync
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.nik.claude-toolkit-sync.plist
+```
+
+To change the time, edit `Hour`/`Minute` in the plist, copy it to `~/Library/LaunchAgents/`,
+then bootout and bootstrap again. launchd does not reread a plist in place.
+
+### Plugins do not arrive through git
+
+**This is the one real limit of the daily sync, and it is worth understanding properly.**
+
+Arnav's repo contains skills as *files*. Plugins are not files — they install from a separate
+marketplace into `~/.claude/plugins/`. When Arnav installs one, the only thing that reaches
+his repo is **a line of text saying he installed it**: a row in his README table and a row in
+`scripts/skill_index.tsv`.
+
+So a daily pull hands you a perfect copy of a note about a plugin, and none of the plugin.
+
+The gap is not small. Arnav's index lists **73 plugins**. Without intervention you would have
+had 2, and the sync would report "up to date" every morning while you were missing the rest.
+`humanizer@humanizer` — the humanizing tool — is one of the missing ones.
+
+The daily job handles this by **detecting and reporting, never installing**. Auto-installing
+marketplace plugins on a timer means running third-party code unattended, which is your
+decision, not a cron job's. So on every run it diffs `scripts/skill_index.tsv`, and if Arnav
+added a plugin you get a macOS notification naming it plus the exact command in the log.
+
+```bash
+# every plugin Arnav lists that is not installed here
+./scripts/nik_daily_sync.sh --report-plugins
+```
+
+Install anything it lists with the two-profile loop from
+[Two apps, two accounts](#two-apps-two-accounts-what-carries-over) — not a bare
+`claude plugin install`, which would only reach one profile.
 
 ### Rules for this branch
 
@@ -381,7 +507,7 @@ Generated from disk. Do not edit by hand — run `python3 scripts/nik_inventory.
 | | Count |
 |---|---|
 | Skills shipped by this repo | 230 |
-| …wired into every config dir (`.claude` + `.claude-nebula`) | 230 |
+| …wired into every config dir (`.claude-nebula` + `.claude`) | 230 |
 | …broken symlinks | 0 |
 | …present in repo but not installed | 0 |
 | …that come from the gstack submodule | 54 |
@@ -397,8 +523,8 @@ from upstream will never touch them.
 
 | Skill | How it is installed | Present in | Real location | What it does |
 |---|---|---|---|---|
-| `humanizer` | symlink | `.claude`, `.claude-nebula` | `~/.agents/skills/humanizer` | Remove signs of AI-generated writing from text. Use when editing or reviewing t… |
-| `parametric-3d-printing` | real folder | `.claude`, `.claude-nebula` | `~/.claude/skills/parametric-3d-printing` | Use this skill when the user wants to design a 3D-printable physical object the… |
+| `humanizer` | symlink | `.claude-nebula`, `.claude` | `~/.agents/skills/humanizer` | Remove signs of AI-generated writing from text. Use when editing or reviewing t… |
+| `parametric-3d-printing` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/parametric-3d-printing` | Use this skill when the user wants to design a 3D-printable physical object the… |
 
 ### Plugins
 
