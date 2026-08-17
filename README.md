@@ -530,6 +530,7 @@ claude-code-setup above. This table is only an index. Run `claude plugin list` f
 | Plugin | Marketplace | Description |
 |---|---|---|
 | agentic-actions-auditor | trailofbits | Audits GitHub Actions workflows for security vulnerabilities in AI agent integrations (Claude Code Action, Gemini CLI, OpenAI Codex, GitHub AI Inference) |
+| brag | brag | Turn the current project's website into a short, shareable launch video using HyperFrames |
 | ai-toolkit | spartan-marketplace | Engineering discipline layer for Claude Code — workflows, rules, skills, agents organized in modular packs |
 | audit-context-building | trailofbits | Understand a codebase before looking for bugs in it. Reads it function by function, records what each one assumes and depends on, and saves the write-ups to files instead of filling up the conversation. |
 | building-secure-contracts | trailofbits | Comprehensive smart contract security toolkit based on Trail of Bits' Building Secure Contracts framework. Includes vulnerability scanners for 6 blockchains and 5 development guideline assistants. |
