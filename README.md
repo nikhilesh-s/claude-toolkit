@@ -24,7 +24,7 @@ editing them by hand.
 | Where do the skills go? | `~/.claude/skills/` **and** `~/.claude-nebula/skills/`, as symlinks back into this repo |
 | How many skills does this repo give me? | 230, all wired up, 0 broken |
 | How many more come from plugins? | 47 (28 Vercel + 19 claude-mem) |
-| How do I get Arnav's new skills? | Automatically, 09:30 daily. See [Daily automatic sync](#daily-automatic-sync) |
+| How do I get Arnav's new skills? | Automatically, 21:00 daily. See [Daily automatic sync](#daily-automatic-sync) |
 | Do his new **plugins** arrive too? | **No.** Git cannot carry a plugin. See [Plugins do not arrive through git](#plugins-do-not-arrive-through-git) |
 | Will that overwrite this README? | No. See [Staying in sync](#staying-in-sync-with-arnav) |
 | Does any of this work in both Claude apps? | Yes for skills — they are linked into both. Plugins must be installed twice. See [Two apps, two accounts](#two-apps-two-accounts-what-carries-over) |
@@ -192,7 +192,7 @@ Checked live on 2026-08-16.
 
 | Thing | State | Port | To start it |
 |---|---|---|---|
-| Daily upstream sync (launchd) | **active**, 09:30 daily | — | see [Daily automatic sync](#daily-automatic-sync) |
+| Daily upstream sync (launchd) | **active**, 21:00 daily | — | see [Daily automatic sync](#daily-automatic-sync) |
 | claude-mem viewer | **up** | 37702 | starts with the plugin |
 | claude-mem worker | **down** | 37701 | `npx claude-mem start` |
 | claude-mem cloud sync | **blocked** | — | Desktop OAuth token expired; re-login via Claude Desktop |
@@ -303,13 +303,13 @@ Then commit, and **restart Claude Code** — skills load only at session start.
 
 ### Daily automatic sync
 
-A launchd job runs `scripts/nik_daily_sync.sh` every day at **09:30**.
+A launchd job runs `scripts/nik_daily_sync.sh` every day at **21:00** (9 PM).
 
 `~/Library/LaunchAgents/com.nik.claude-toolkit-sync.plist` — the copy in
 `scripts/` is the tracked original.
 
 **launchd, not cron.** cron on macOS silently skips a job whose time passed while the machine
-was asleep. A laptop shut at 09:30 would just never sync. launchd runs a missed
+was asleep. A laptop shut at 21:00 would just never sync. launchd runs a missed
 `StartCalendarInterval` job as soon as the machine wakes.
 
 It is deliberately timid, because unattended git that fights you is worse than none:
@@ -331,7 +331,7 @@ prunes links for skills upstream deleted, and regenerates the inventory below.
 cat ~/Library/Logs/claude-toolkit/last-run.txt     # one-line verdict from the last run
 tail -40 ~/Library/Logs/claude-toolkit/sync.log    # full history, auto-rotated at 1 MB
 
-# run it now instead of waiting for 09:30
+# run it now instead of waiting for 21:00
 launchctl kickstart -p gui/$(id -u)/com.nik.claude-toolkit-sync
 ./scripts/nik_daily_sync.sh --dry-run              # report only, change nothing
 

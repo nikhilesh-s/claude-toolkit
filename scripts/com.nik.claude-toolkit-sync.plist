@@ -17,10 +17,12 @@
     <string>/Users/niks/claude-toolkit/scripts/nik_daily_sync.sh</string>
   </array>
 
+  <!-- 21:00 daily. If the machine is asleep at 21:00, launchd runs the job on
+       the next wake — cron would simply skip that day. -->
   <key>StartCalendarInterval</key>
   <dict>
-    <key>Hour</key><integer>9</integer>
-    <key>Minute</key><integer>30</integer>
+    <key>Hour</key><integer>21</integer>
+    <key>Minute</key><integer>0</integer>
   </dict>
 
   <!-- Do not run on load/login: loading it should not trigger a sync. -->
