@@ -166,5 +166,11 @@ if [ "$DRY" = 1 ]; then
   echo "dry run — nothing changed ($changed drift item(s) found)"
 else
   echo "profile parity done ($changed change(s))"
-  [ "$changed" -gt 0 ] && echo "Restart Claude Code for changes to load."
+  if [ "$changed" -gt 0 ]; then
+    echo "Restart Claude Code for changes to load."
+  fi
 fi
+
+# Explicit. Without it the last command above is the exit status, so a clean
+# run with 0 changes would exit 1 and the daily job would report a failure.
+exit 0
