@@ -358,19 +358,51 @@ The gap is not small. Arnav's index lists **73 plugins**. Without intervention y
 had 2, and the sync would report "up to date" every morning while you were missing the rest.
 `humanizer@humanizer` — the humanizing tool — is one of the missing ones.
 
-The daily job handles this by **detecting and reporting, never installing**. Auto-installing
-marketplace plugins on a timer means running third-party code unattended, which is your
-decision, not a cron job's. So on every run it diffs `scripts/skill_index.tsv`, and if Arnav
-added a plugin you get a macOS notification naming it plus the exact command in the log.
+### Plugin parity is now automatic — and what that means
+
+As of 2026-08-16 the daily job **installs** Arnav's plugins, it does not just report them.
+`AUTO_INSTALL_PLUGINS=1` in `scripts/nik_daily_sync.sh` controls this.
+
+The bulk catch-up ran on 2026-08-16: **3 plugins → 69**, in both profiles.
+
+Two did not make it, both explainable:
+
+| Plugin | Why |
+|---|---|
+| `ai-toolkit@spartan-marketplace` | that marketplace is not public any more — only Arnav knows where it moved |
+| `claude-hud@claude-hud` | one flaky install out of ~140; landed in `.claude`, missed `.claude-nebula`. Re-run the installer, it is idempotent |
+
+**Be clear about the trade you made.** Every morning, whatever Arnav installs gets downloaded
+from its marketplace, installed into both your profiles, and enabled — with nobody reading it
+first. You are trusting one person's curation across ~29 third-party marketplaces, on a timer.
+That is a standing decision, not a one-time one, and the blast radius is your agent sessions.
+
+To go back to review-first, set `AUTO_INSTALL_PLUGINS=0` in `scripts/nik_daily_sync.sh`. The
+job then notifies you and logs the command instead of running it. Nothing else changes.
 
 ```bash
-# every plugin Arnav lists that is not installed here
+# what is missing right now, install nothing
 ./scripts/nik_daily_sync.sh --report-plugins
+./scripts/nik_install_plugins.sh --dry-run
+
+# install everything missing, into both profiles (idempotent)
+./scripts/nik_install_plugins.sh
 ```
 
-Install anything it lists with the two-profile loop from
-[Two apps, two accounts](#two-apps-two-accounts-what-carries-over) — not a bare
-`claude plugin install`, which would only reach one profile.
+Never use a bare `claude plugin install` — it reaches one profile only. See
+[Two apps, two accounts](#two-apps-two-accounts-what-carries-over).
+
+### How marketplace names get resolved
+
+Upstream records a plugin as `<name>@<marketplace>`, but installing needs `owner/repo`, and
+the two often differ — `brag` → `latent-spaces/brag`, `humanizer` → `blader/humanizer`,
+`trailofbits` → `trailofbits/skills`.
+
+`scripts/nik_resolve_marketplaces.sh` searches GitHub for a candidate and then **verifies that
+its `.claude-plugin/marketplace.json` actually declares that marketplace name** before
+accepting it. Guessing from the name alone is how you would end up installing a stranger's
+same-named repo. Verified results are cached in `scripts/marketplace_sources.tsv` (28 of 29
+resolved) and pinned entries are never re-guessed.
 
 ### Rules for this branch
 
@@ -512,7 +544,7 @@ Generated from disk. Do not edit by hand — run `python3 scripts/nik_inventory.
 | …present in repo but not installed | 0 |
 | …that come from the gstack submodule | 54 |
 | Skills installed outside this repo | 2 |
-| Plugins installed | 3 (3 enabled) |
+| Plugins installed | 70 (68 enabled) |
 | Skills naming a credential env var | 68 |
 | Skills naming an MCP server | 42 |
 
@@ -533,11 +565,78 @@ A plugin can carry its own skills, its own slash commands, and its own MCP serve
 
 | Plugin | Version | Enabled | Marketplace repo | Auto-update | Skills | Commands | Agents | MCP servers it brings |
 |---|---|---|---|---|---|---|---|---|
+| `agent-browser@agent-browser` | 548b159b30ee | yes | `vercel-labs/agent-browser` | no | 1 | 0 | 0 | — |
+| `agentic-actions-auditor@trailofbits` | 1.2.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `audit-context-building@trailofbits` | 2.0.0 | yes | `trailofbits/skills` | no | 1 | 0 | 1 | — |
 | `brag@brag` | 0.2.2 | yes | `latent-spaces/brag` | no | 1 | 0 | 0 | — |
+| `building-secure-contracts@trailofbits` | 1.1.2 | yes | `trailofbits/skills` | no | 11 | 0 | 0 | — |
+| `burpsuite-project-parser@trailofbits` | 1.0.1 | yes | `trailofbits/skills` | no | 1 | 1 | 0 | — |
+| `c-review@trailofbits` | 1.2.0 | yes | `trailofbits/skills` | no | 1 | 0 | 3 | — |
+| `caveman@caveman` | 766dce6b1394 | yes | `JuliusBrussee/caveman` | no | 20 | 5 | 5 | — |
+| `claude-api@anthropic-agent-skills` | f6656c1256d5 | yes | `anthropics/skills` | no | 17 | 0 | 0 | — |
+| `claude-code-setup@claude-plugins-official` | 1.0.0 | yes | `anthropics/claude-plugins-official` | no | 1 | 0 | 0 | — |
+| `claude-hud@claude-hud` | 0.7.1 | no | `jarrodwatts/claude-hud` | no | 0 | 2 | 0 | — |
+| `claude-in-chrome-troubleshooting@trailofbits` | 1.1.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 | `claude-mem@thedotmack` | 13.14.0 | yes | `thedotmack/claude-mem` | yes | 19 | 0 | 0 | `mcp-search` |
+| `code-simplifier@claude-plugins-official` | 1.0.0 | yes | `anthropics/claude-plugins-official` | no | 0 | 0 | 1 | — |
+| `codex@openai-codex` | 1.0.6 | yes | `openai/codex-plugin-cc` | no | 3 | 8 | 1 | — |
+| `constant-time-analysis@trailofbits` | 0.2.0 | yes | `trailofbits/skills` | no | 1 | 1 | 0 | — |
+| `culture-index@trailofbits` | 1.1.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `devcontainer-setup@trailofbits` | 0.2.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `differential-review@trailofbits` | 1.1.1 | yes | `trailofbits/skills` | no | 1 | 1 | 1 | — |
+| `dimensional-analysis@trailofbits` | 3.0.1 | yes | `trailofbits/skills` | no | 1 | 0 | 5 | — |
+| `document-skills@anthropic-agent-skills` | f6656c1256d5 | yes | `anthropics/skills` | no | 17 | 0 | 0 | — |
+| `dwarf-expert@trailofbits` | 1.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `entry-point-analyzer@trailofbits` | 1.0.1 | yes | `trailofbits/skills` | no | 1 | 1 | 0 | — |
+| `example-skills@anthropic-agent-skills` | f6656c1256d5 | yes | `anthropics/skills` | no | 17 | 0 | 0 | — |
+| `firebase-apk-scanner@trailofbits` | 2.1.1 | yes | `trailofbits/skills` | no | 1 | 1 | 0 | — |
+| `fp-check@trailofbits` | 1.0.3 | yes | `trailofbits/skills` | no | 1 | 0 | 3 | — |
+| `frontend-slides@frontend-slides` | 2.1.0 | yes | `zarazhangrui/frontend-slides` | no | 1 | 0 | 0 | — |
+| `gh-cli@trailofbits` | 1.5.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `git-cleanup@trailofbits` | 1.0.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `github-triage@trailofbits` | 0.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `gsap-skills@gsap-skills` | 1.0.0 | yes | `greensock/gsap-skills` | no | 8 | 0 | 0 | — |
+| `humanizer@humanizer` | 2.9.1 | yes | `blader/humanizer` | no | 0 | 0 | 0 | — |
+| `i-have-adhd@i-have-adhd` | 0.1.0 | yes | `ayghri/i-have-adhd` | no | 1 | 0 | 0 | — |
+| `impeccable@impeccable` | 4.1.1 | yes | `pbakaus/impeccable` | no | 1 | 0 | 4 | — |
+| `insecure-defaults@trailofbits` | 2.0.0 | yes | `trailofbits/skills` | no | 0 | 1 | 0 | — |
+| `ios-simulator-skill@conorluddy` | e0ee87a884b4 | yes | `conorluddy/ios-simulator-skill` | no | 1 | 0 | 0 | — |
+| `last30days@last30days-skill` | 3.21.0 | yes | `mvanhorn/last30days-skill` | no | 1 | 0 | 0 | — |
+| `let-fate-decide@trailofbits` | 1.2.2 | yes | `trailofbits/skills` | no | 1 | 0 | 1 | — |
+| `marketing-skills@marketingskills` | 2.10.0 | yes | `coreyhaines31/marketingskills` | no | 49 | 0 | 0 | — |
+| `mattpocock-skills@mattpocock` | 1.2.3 | no | `mattpocock/skills` | no | 0 | 0 | 0 | — |
+| `modern-python@trailofbits` | 1.5.3 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `mutation-testing@trailofbits` | 1.0.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `open-sourcing@trailofbits` | 0.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `playwright-skill@playwright-skill` | 5.0.0 | yes | `lackeyjb/playwright-skill` | no | 1 | 0 | 0 | — |
+| `ponytail@ponytail` | 4.9.0 | yes | `DietrichGebert/ponytail` | no | 6 | 0 | 0 | — |
+| `property-based-testing@trailofbits` | 1.1.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `pyright-lsp@claude-plugins-official` | 1.0.0 | yes | `anthropics/claude-plugins-official` | no | 0 | 0 | 0 | — |
+| `rust-review@trailofbits` | 1.0.0 | yes | `trailofbits/skills` | no | 1 | 0 | 3 | — |
+| `second-opinion@trailofbits` | 1.7.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | `codex` |
+| `semgrep-rule-creator@trailofbits` | 1.2.2 | yes | `trailofbits/skills` | no | 1 | 1 | 0 | — |
+| `semgrep-rule-variant-creator@trailofbits` | 1.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `sharp-edges@trailofbits` | 1.1.1 | yes | `trailofbits/skills` | no | 1 | 0 | 1 | — |
+| `skill-improver@trailofbits` | 1.1.0 | yes | `trailofbits/skills` | no | 1 | 1 | 0 | — |
+| `social-media-skills@social-media-skills` | 1.0.0 | yes | `charlie947/social-media-skills` | no | 17 | 0 | 0 | — |
+| `spec-to-code-compliance@trailofbits` | 2.0.0 | yes | `trailofbits/skills` | no | 1 | 0 | 1 | — |
+| `static-analysis@trailofbits` | 1.3.1 | yes | `trailofbits/skills` | no | 3 | 0 | 0 | — |
+| `superpowers@superpowers-dev` | 6.3.0 | yes | `obra/superpowers` | no | 14 | 0 | 0 | — |
+| `supply-chain-risk-auditor@trailofbits` | 2.0.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `taste-skill@taste-skill` | 1.0.0 | yes | `Leonxlnx/taste-skill` | no | 13 | 0 | 0 | — |
+| `terrashark@terrashark` | 2.3.0 | yes | `LukasNiessen/terrashark` | no | 0 | 0 | 0 | — |
+| `testing-handbook-skills@trailofbits` | 1.0.2 | yes | `trailofbits/skills` | no | 15 | 0 | 0 | — |
+| `trailmark@trailofbits` | 0.10.0 | yes | `trailofbits/skills` | no | 14 | 0 | 1 | — |
+| `variant-analysis@trailofbits` | 2.0.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 | `vercel@claude-plugins-official` | 0.44.0 | yes | `anthropics/claude-plugins-official` | no | 28 | 5 | 3 | `vercel` |
+| `vulnerability-triage-brocards@trailofbits` | 0.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `warp@claude-code-warp` | 2.2.0 | yes | `warpdotdev/claude-code-warp` | no | 0 | 0 | 0 | — |
+| `web-asset-generator@web-asset-generator-marketplace` | 1.0.0 | yes | `alonw0/web-asset-generator` | no | 1 | 0 | 0 | — |
+| `writing-lean-proofs@trailofbits` | 0.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `yara-authoring@trailofbits` | 2.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
+| `zeroize-audit@trailofbits` | 0.1.2 | yes | `trailofbits/skills` | no | 1 | 0 | 11 | `serena` |
 
-That is **48 more skills** on top of the 230 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
+That is **316 more skills** on top of the 230 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
 
 ### MCP servers
 
@@ -546,7 +645,9 @@ That is **48 more skills** on top of the 230 in this repo. Plugin skills are ver
 | Server | Comes from | Transport | Endpoint / command | Credential needed |
 |---|---|---|---|---|
 | `mcp-search` | `claude-mem@thedotmack` | stdio | `node` | none |
+| `codex` | `second-opinion@trailofbits` | stdio | `codex` | none |
 | `vercel` | `vercel@claude-plugins-official` | http | `https://mcp.vercel.com` | OAuth |
+| `serena` | `zeroize-audit@trailofbits` | stdio | `uvx` | none |
 
 #### Registered through the Claude Code CLI
 
