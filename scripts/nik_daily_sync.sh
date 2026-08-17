@@ -90,6 +90,20 @@ finish() {
   exit "${3:-0}"
 }
 
+# Keep ~/.claude and ~/.claude-nebula matched. Runs on EVERY sync, including
+# the "no new upstream commits" path — profiles drift on their own when a
+# third-party CLI writes into one of them, with no upstream commit involved.
+run_parity() {
+  [ "$DRY_RUN" = 1 ] && return 0
+  log "syncing profile parity (~/.claude <-> ~/.claude-nebula)"
+  if ./scripts/nik_sync_profiles.sh >>"$LOG" 2>&1; then
+    log "profile parity ok"
+  else
+    log "profile parity FAILED"
+    notify "Claude toolkit" "Profile parity step failed. See sync.log."
+  fi
+}
+
 # --- single instance --------------------------------------------------------
 if ! mkdir "$LOCK" 2>/dev/null; then
   # Stale lock from a killed run? Anything older than 2h is stale.
@@ -124,7 +138,9 @@ BASE="$(git merge-base HEAD upstream/main)"
 UP="$(git rev-parse upstream/main)"
 
 if [ "$BASE" = "$UP" ]; then
-  finish "UP TO DATE" "no new upstream commits" 0
+  # Nothing from Arnav, but profiles can still have drifted. Check anyway.
+  run_parity
+  finish "UP TO DATE" "no new upstream commits (profile parity checked)" 0
 fi
 
 # --- what is coming ---------------------------------------------------------
@@ -227,6 +243,8 @@ if [ "$AUTO_INSTALL_PLUGINS" = 1 ] && [ -n "$MISSING_PLUGINS" ]; then
     notify "Claude toolkit" "A plugin install failed. See sync.log."
   fi
 fi
+
+run_parity
 
 "$PY" scripts/nik_inventory.py >>"$LOG" 2>&1
 
