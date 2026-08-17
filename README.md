@@ -1,6 +1,6 @@
 # Claude Toolkit
 
-Everything Claude Code related on this machine, in one place. Set up 2026-08-08.
+This file lists everything related to Claude Code on this machine, in one place. Setup date: 2026-08-08.
 
 ```
 ~/claude-toolkit/
@@ -24,81 +24,87 @@ Everything Claude Code related on this machine, in one place. Set up 2026-08-08.
 | [Serena](#serena) | MCP server (code intel) | ✅ active, auto-starts |
 | [status.sh](#statussh) | Script | ✅ working |
 | [Instagram-sourced tools](#instagram-sourced-2026-08-16) | CLI tools + apps | ✅ mostly active |
+| [What runs on its own](#what-runs-on-its-own-and-what-needs-setup) | Reference table | — |
 
-**Skills** genuinely live here — `~/.claude/skills/` contains only symlinks pointing back into
-`skills/`, so edit files here and the change is live. **Plugins and OmniRoute don't** — they
-install into `~/.claude/plugins/` and global npm, and this README is just their index. So
-don't expect to find their code in this folder.
+**Skills** live here. `~/.claude/skills/` holds only symlinks that point back into `skills/`.
+Edit a file here, and the change takes effect right away.
 
-Run `./status.sh` any time to see what's actually up.
+**Plugins and OmniRoute do not live here.** They install into `~/.claude/plugins/` or into
+global npm. This README only lists them. Do not expect to find their code in this folder.
+
+Run `./status.sh` at any time to check the current state.
 
 ---
 
 ## task-observer
 
-**One Skill to Rule Them All** — a meta-skill that watches your sessions, notices corrections
-and repeated patterns, and proposes new/updated skills. Author reports ~900 improvements
-across 50 skills in six months.
+**One Skill to Rule Them All.** This is a meta-skill. It watches your sessions, notices
+corrections and repeated patterns, and proposes new or updated skills. The author reports
+about 900 improvements across 50 skills in six months.
 
 - Source: https://github.com/rebelytics/one-skill-to-rule-them-all (CC BY 4.0)
-- Installed as a symlink, so `git pull` in the repo updates the live skill:
+- The skill is installed as a symlink. Run `git pull` in the repo to update the live skill:
   ```bash
   cd ~/claude-toolkit/skills/task-observer && git pull
   ```
-- Loads as `task-observer@skills-dir`. It self-describes as "invoke at the start of every
-  task-oriented session" — if that turns out to be too eager, trim the `description:`
-  frontmatter in `SKILL.md` rather than deleting the skill.
-- Read `USER-GUIDE.md` in the repo before leaning on it; it expects an observation log.
+- Claude loads it as `task-observer@skills-dir`. Its own description says to invoke it at the
+  start of every task-oriented session. If it fires too often, shorten the `description:`
+  field in `SKILL.md` instead of deleting the skill.
+- Read `USER-GUIDE.md` in the repo before you rely on this skill. It expects an observation log.
 
 ## humanizer (moved)
 
-Used to live here as `skills/humanizer/SKILL.md`, installed 2026-08-08 from a loose file in
-`~/Downloads` with **no known origin**. On 2026-08-16, `blader/humanizer` turned up in the
-`charliehills` Instagram list — diffed byte-identical against the untracked copy. That confirms
-the real source, so it's no longer worth carrying as an origin-unknown raw skill: removed from
-`skills/`, now tracked properly as the `humanizer@humanizer` plugin (see
-[Bulk-installed plugins](#bulk-installed-plugins-2026-08-16)) — same behavior, real provenance,
-updatable with `claude plugin update humanizer@humanizer`.
+This skill used to live here, at `skills/humanizer/SKILL.md`. It was installed on 2026-08-08
+from a loose file in `~/Downloads`, and its origin was **not known**.
+
+On 2026-08-16, `blader/humanizer` turned up in the `charliehills` Instagram list. A diff showed
+it was byte-identical to the untracked copy. This confirms the real source.
+
+The skill is no longer worth keeping as an origin-unknown raw file. It was removed from
+`skills/`, and is now tracked as the `humanizer@humanizer` plugin instead (see
+[Bulk-installed plugins](#bulk-installed-plugins-2026-08-16)). It behaves the same way, but now
+has a real, known source. Update it with `claude plugin update humanizer@humanizer`.
 
 ## ste-writing
 
-Rewrites prose into ASD-STE100 Simplified Technical English — docs, READMEs, PR text, error
-messages, release notes. Explicitly *not* for code, marketing copy, or anything needing a
-voice, since STE strips voice by design. Has strict and STE-flavored modes.
+This skill rewrites prose into ASD-STE100 Simplified Technical English. Use it for docs,
+READMEs, pull-request text, error messages, and release notes. Do not use it for code,
+marketing copy, or any text that needs a distinct voice — STE removes voice by design. It has
+a strict mode and an STE-flavored mode.
 
 - Installed from `ste-writing-skill.md` in `~/Downloads` on 2026-08-08.
-- Source of truth is `skills/ste-writing/SKILL.md` here.
-- Self-contained. References the free standard at https://asd-ste100.org (copyrighted — the
-  skill correctly says not to paste it in full).
+- The source of truth is `skills/ste-writing/SKILL.md` here.
+- Self-contained. It links to the free standard at https://asd-ste100.org. That standard is
+  copyrighted, so the skill correctly avoids pasting it in full.
 
-**These two overlap and conflict.** Both fight AI-sounding prose, but in opposite directions:
-`humanizer` adds voice and personality, `ste-writing` removes it. Invoke one deliberately;
-don't let both fire on the same text.
+**humanizer and ste-writing conflict.** Both fight AI-sounding prose, but in opposite
+directions. `humanizer` adds voice and personality. `ste-writing` removes voice. Choose one on
+purpose. Do not let both act on the same text.
 
 ## claude-mem
 
-Persistent memory across Claude Code sessions. Captures tool usage, summarizes it via the
-Agent SDK, and injects context from your previous 10 sessions in a project.
+This plugin keeps memory across Claude Code sessions. It captures tool usage, summarizes it
+with the Agent SDK, and adds context from your last 10 sessions in a project.
 
-- Docs: https://docs.claude-mem.ai/introduction · Repo: `thedotmack/claude-mem`
-- Version 13.14.0. Data + config in `~/.claude-mem` (local only).
-- Worker UI: http://127.0.0.1:37701
-- Worker does **not** autostart. After a reboot:
+- Docs: https://docs.claude-mem.ai/introduction. Repo: `thedotmack/claude-mem`.
+- Version 13.14.0. Data and config live in `~/.claude-mem` (local only).
+- Worker interface: http://127.0.0.1:37701
+- The worker does **not** start on its own. After a reboot, run:
   ```bash
   npx claude-mem start
   ```
-- Memory injection begins on your *second* session in a given project. Optional one-time
-  ingest of a whole repo: run `/learn-codebase` inside that project (~5 min).
-- Privacy: wrap anything you don't want captured in `<private>` tags. Native Claude Code
-  memory was left enabled alongside it.
-- Note: this observes everything you do in Claude Code. That's the point, but it's worth
-  knowing it's on.
+- Memory injection starts on your *second* session in a project. To ingest a whole repo once,
+  run `/learn-codebase` inside that project. This takes about 5 minutes.
+- Privacy: wrap any text you do not want captured in `<private>` tags. Native Claude Code
+  memory stays enabled alongside claude-mem.
+- Note: claude-mem watches everything you do in Claude Code. That is its purpose, but you
+  should know it is on.
 
 ### Gotcha, already fixed
-`npx claude-mem install` registered its marketplace by copying the npm package, which puts
+`npx claude-mem install` registered its marketplace by copying the npm package. This placed
 `marketplace.json` at `.agents/plugins/` instead of `.claude-plugin/`. Claude Code then
-reports `failed to load: cache-miss`. Fix (already applied — redo only if it recurs after an
-upgrade):
+reported `failed to load: cache-miss`. The fix below is already applied. Redo it only if the
+problem returns after an upgrade:
 ```bash
 claude plugin marketplace remove thedotmack
 claude plugin marketplace add thedotmack/claude-mem
@@ -107,44 +113,45 @@ claude plugin install claude-mem@thedotmack
 
 ## claude-code-setup
 
-Anthropic's official plugin that audits a repo **read-only** and recommends hooks, skills,
-MCP servers, subagents, and slash commands.
+This is Anthropic's official plugin. It audits a repo in **read-only** mode and recommends
+hooks, skills, MCP servers, subagents, and slash commands.
 
-- From the official marketplace, already known to this machine.
-- Usage: from a project root, ask `recommend automations for this project`.
-- The safety point from https://aident.ai/blog/use-claude-code-setup-plugin-safely:
-  recommendation and implementation are separate steps. After an audit, confirm it stayed
-  read-only (`git status`), then adopt suggestions **one at a time**, each with its own
-  verification. Judge each on evidence, scope, permissions, and how you'd verify it.
+- It comes from the official marketplace, already known to this machine.
+- To use it, go to a project root and ask it to recommend automations for this project.
+- Safety note, from https://aident.ai/blog/use-claude-code-setup-plugin-safely: recommendation
+  and implementation are separate steps. After an audit, confirm it stayed read-only with
+  `git status`. Then adopt suggestions **one at a time**, and verify each one. Judge each
+  suggestion on its evidence, scope, permissions, and how you would check it.
 
 ## OmniRoute
 
-Local AI gateway — one OpenAI-compatible endpoint fronting 290+ providers, with fallback
-routing and token compression.
+OmniRoute is a local AI gateway. It gives one OpenAI-compatible endpoint that fronts more
+than 290 providers, with fallback routing and token compression.
 
-- Repo: https://github.com/diegosouzapw/OmniRoute (MIT) · v3.8.49, installed via `npm i -g omniroute`
-- Dashboard http://localhost:20128 · API base http://localhost:20128/v1
-- Currently **running as a daemon**. Control it with:
+- Repo: https://github.com/diegosouzapw/OmniRoute (MIT). Version 3.8.49, installed with
+  `npm i -g omniroute`.
+- Dashboard: http://localhost:20128. API base: http://localhost:20128/v1
+- OmniRoute **runs as a daemon** right now. Control it with:
   ```bash
   omniroute serve --daemon --no-open   # start
   omniroute stop                       # stop
   omniroute status
   ```
-- **Your Claude Code traffic is NOT routed through this.** Installing it changed nothing
-  about how Claude Code talks to Anthropic. Pointing a client at `/v1` is a deliberate,
-  separate step — and it would send those prompts to third-party providers.
+- **Claude Code traffic does not go through OmniRoute.** Installing it changed nothing about
+  how Claude Code talks to Anthropic. Pointing a client at `/v1` is a separate, deliberate
+  step, and it would send those prompts to third-party providers.
 
 ### Remaining manual step: MCP
-You asked for the MCP server registered. It isn't, for two reasons:
+The MCP server is not registered yet, for two reasons:
 
-1. The stdio transport (`omniroute --mcp`) is **broken in v3.8.49** — the bundled
+1. The stdio transport (`omniroute --mcp`) is **broken in v3.8.49**. The bundled
    `dist/open-sse/mcp-server/server.js` throws `SyntaxError: Unexpected reserved word` on a
-   top-level `await`. That's an upstream build bug, not a config problem.
-2. The HTTP transport works but returns `AUTH_001 Authentication required`, and OmniRoute
-   has no account yet. Creating one means setting a password at http://localhost:20128/login,
-   which is yours to do, not mine.
+   top-level `await`. This is an upstream build bug, not a config problem.
+2. The HTTP transport works, but it returns `AUTH_001 Authentication required`. OmniRoute has
+   no account yet. To create one, set a password at http://localhost:20128/login. This step
+   is yours to do.
 
-Once you've created the account and generated a key (`omniroute keys list` to check):
+After you create the account and generate a key (check with `omniroute keys list`), run:
 ```bash
 claude mcp add omniroute --scope user --transport http \
   http://localhost:20128/api/mcp/stream \
@@ -153,83 +160,101 @@ claude mcp list   # confirm it connects
 ```
 
 ### Also worth knowing
-npm **blocked OmniRoute's postinstall scripts** (default `allow-scripts` policy). Ten packages
-were affected including native modules — `koffi`, `sharp`, `onnxruntime-node`, `keytar`,
-`@parcel/watcher`. The server starts fine, but features depending on those may fail. If you
-hit that, `omniroute runtime repair` is the intended fix. I did not override the script
-policy — allowing arbitrary postinstall scripts from a 290-provider gateway is a call you
-should make knowingly, not one I should make for you.
+npm **blocked OmniRoute's postinstall scripts**, under its default `allow-scripts` policy. Ten
+packages were affected, including native modules: `koffi`, `sharp`, `onnxruntime-node`,
+`keytar`, `@parcel/watcher`. The server still starts, but features that depend on those
+packages may fail. If you hit that, run `omniroute runtime repair`. The script policy was not
+overridden on purpose. Allowing arbitrary postinstall scripts from a gateway that touches 290
+providers is a decision you should make yourself, with full knowledge of the risk.
 
 ## Headroom
 
-**Skipped, per your call.** macOS menu bar app that proxies Claude Code / Codex through a
-local compression pipeline, claiming ~50% token savings.
+**Not installed, by your choice.** Headroom is a macOS menu bar app. It proxies Claude Code
+and Codex through a local compression pipeline, and claims about 50% token savings.
 
-- Repo: https://github.com/gglucass/headroom-desktop · latest v0.7.6
-- Desktop shell is MIT, but the app **requires a paid subscription** — from $3/mo, 7-day trial.
-- `brew install --cask headroom` from the README **does not work** — no such cask exists in
-  any tapped repo as of 2026-08-08. Use the `.dmg` from
-  https://github.com/gglucass/headroom-desktop/releases/latest
-- Requires macOS 14+ on Apple Silicon. This machine is macOS 26.4 / arm64 — compatible.
+- Repo: https://github.com/gglucass/headroom-desktop. Latest version: v0.7.6.
+- The desktop shell is MIT-licensed, but the app **requires a paid subscription**. Price
+  starts at $3 per month, with a 7-day trial.
+- The README's `brew install --cask headroom` command **does not work**. No such cask exists
+  in any tapped repo, as of 2026-08-08. Use the `.dmg` file from
+  https://github.com/gglucass/headroom-desktop/releases/latest instead.
+- Headroom requires macOS 14 or later, on Apple Silicon. This machine runs macOS 26.4 on
+  arm64, so it is compatible.
 
 ## status.sh
 
-The toolkit's own health check — read-only, changes nothing. Walks every symlink in `skills/`
-and confirms it resolves and loads (`<name>@skills-dir`), lists installed plugins with
-enabled/disabled status via `claude plugin list`, checks the claude-mem worker (`:37701`) and
-OmniRoute (`:20128`) over HTTP, and confirms OmniRoute is registered as an MCP server. Run it any
-time:
+This is the toolkit's own health check. It is read-only and changes nothing. It walks every
+symlink in `skills/` and confirms each one resolves and loads (`<name>@skills-dir`). It lists
+installed plugins, with enabled or disabled status, using `claude plugin list`. It checks the
+claude-mem worker (port 37701) and OmniRoute (port 20128) over HTTP. It confirms OmniRoute is
+registered as an MCP server. Run it at any time:
 
 ```bash
 ~/claude-toolkit/status.sh
 ```
 
-Nothing to install or configure — it's the one script that lives at the repo root (everything
-else executable lives inside individual skill folders, e.g. `skills/ffuf-web-fuzzing/ffuf_helper.py`,
-and isn't tracked here individually).
+There is nothing to install or configure. This is the only script at the repo root. Every
+other executable file lives inside its own skill folder, for example
+`skills/ffuf-web-fuzzing/ffuf_helper.py`. Those files are not tracked here one by one.
 
 ## Serena
 
-Semantic code-navigation MCP server ([oraios/serena](https://github.com/oraios/serena)) — LSP-backed
-symbol tools (`find_symbol`, `find_referencing_symbols`, `replace_symbol_body`, etc.) that stand in for
-grep/Read/Edit on coding tasks. Not installed deliberately — it's a dependency the `zeroize-audit`
-plugin (from the `trailofbits` marketplace) pulls in and starts automatically.
+Serena ([oraios/serena](https://github.com/oraios/serena)) is a semantic code-navigation MCP
+server. It gives LSP-backed symbol tools — `find_symbol`, `find_referencing_symbols`,
+`replace_symbol_body`, and others — that stand in for grep, Read, and Edit on coding tasks. It
+was not installed on purpose. The `zeroize-audit` plugin, from the `trailofbits` marketplace,
+pulls it in and starts it automatically.
 
-**How it's used:** you don't call it directly. Its own instructions ("Serena Instructions Manual",
-fetched via `initial_instructions`) tell Claude to prefer its tools over built-ins once loaded:
-- **Reading**: `get_symbols_overview` for a file's structure, then `find_symbol` with `include_body=True`
-  for the specific symbol — plain `Read` is "forbidden for discovery" per its own rules.
-- **Editing**: `replace_symbol_body` / `insert_after_symbol` / `insert_before_symbol` for symbol-level
-  changes, `rename_symbol` / `safe_delete_symbol` for reference-aware refactors, `replace_content` for
-  sub-symbol edits — plain `Edit` is "forbidden" once Serena's tools are loaded for that turn.
-- **Cross-reference**: `find_referencing_symbols` to see what calls/imports a symbol before changing it.
-- It auto-activates whichever project directory Claude is running in (LSP index + optional per-project
-  "memories" via `read_memory`/`write_memory`, unrelated to claude-mem — code-symbol-scoped, not
-  conversation-scoped) and stores that state in `.serena/` in the project root. Serena's own
-  nested `.serena/.gitignore` excludes the regenerable LSP `cache/` and the machine-specific
-  `project.local.yml`; `.serena/project.yml` (language servers, encoding, tool settings) is
-  plain config with no secrets, so it's tracked here like any other project setting.
+**How it is used:** you do not call it directly. Its own instructions (the "Serena
+Instructions Manual," fetched with `initial_instructions`) tell Claude to prefer its tools
+over the built-in ones, once loaded:
+- **Reading**: use `get_symbols_overview` for a file's structure. Then use `find_symbol` with
+  `include_body=True` for a specific symbol. Serena's own rules call plain `Read` "forbidden
+  for discovery."
+- **Editing**: use `replace_symbol_body`, `insert_after_symbol`, or `insert_before_symbol` for
+  symbol-level changes. Use `rename_symbol` or `safe_delete_symbol` for reference-aware
+  refactors. Use `replace_content` for smaller, sub-symbol edits. Plain `Edit` is "forbidden"
+  once Serena's tools load for that turn.
+- **Cross-reference**: use `find_referencing_symbols` to see what calls or imports a symbol,
+  before you change it.
+- Serena activates automatically for whichever project directory Claude runs in. It builds an
+  LSP index and, per project, optional "memories" through `read_memory` and `write_memory`.
+  These memories are unrelated to claude-mem — they cover code symbols, not conversations.
+  Serena stores this state in `.serena/` inside the project root. Serena's own nested
+  `.serena/.gitignore` file excludes the regenerable LSP `cache/` folder and the
+  machine-specific `project.local.yml` file. The file `.serena/project.yml` holds plain
+  settings (language servers, encoding, tool options) with no secrets, so this repo tracks it
+  like any other project setting.
 
-- Runs via `uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context
-  claude-code --project-from-cwd` — spawned as a background process, one language server per
-  configured language (this repo: just `bash`).
-- **Dashboard**: http://127.0.0.1:24282/dashboard/index.html — live log of every tool call the server
-  makes, plus a shutdown button. Mirrored by a macOS menu-bar tray icon
-  (`SerenaDashboardTrayManager`) — same thing, native chrome.
-- To stop it: find and kill the `serena start-mcp-server` process and the
-  `SerenaDashboardTrayManager` process (`pgrep -fl serena`), or just avoid invoking a skill/plugin
-  that depends on it (currently only `zeroize-audit`).
+- Serena runs through `uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+  --context claude-code --project-from-cwd`. This spawns a background process, with one
+  language server per configured language. This repo configures only `bash`.
+- **Dashboard**: http://127.0.0.1:24282/dashboard/index.html. It shows a live log of every
+  tool call the server makes, plus a shutdown button. A macOS menu-bar tray icon
+  (`SerenaDashboardTrayManager`) mirrors the same dashboard.
+- To stop Serena, find and kill the `serena start-mcp-server` process and the
+  `SerenaDashboardTrayManager` process. Run `pgrep -fl serena` to find them. Or simply avoid
+  any skill or plugin that depends on Serena — right now, only `zeroize-audit` does.
 
 ---
 
 ## All skills (174)
 
-Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s frontmatter. Regenerate after adding or removing a skill:
+This list covers every skill in `skills/`, grouped by purpose. A script generates it from
+each `SKILL.md` file's frontmatter. After you add or remove a skill, regenerate the list:
 ```bash
 uv run python scripts/categorize_skills.py --check   # flags anything uncategorized, exits 1 if so
 uv run python scripts/categorize_skills.py            # prints the replacement section
 ```
-It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale snapshot — a new skill shows up as "uncategorized" in `--check` rather than silently missing from this list. `ste-writing` and `task-observer` also have full write-ups above; `humanizer` moved from a raw skill here to the `humanizer@humanizer` plugin once its real source (`blader/humanizer`) was confirmed. Same symlink convention as everything else: real files live in `skills/<name>/`, `~/.claude/skills/<name>` is a symlink — confirm with `./status.sh`. Categories are one judgment call per skill, not an upstream standard.
+The script reads `skills/*/SKILL.md` directly, so the list always matches the real files. It
+is never a stale snapshot. A new skill shows up as "uncategorized" in `--check`, instead of
+silently missing from this list.
+
+`ste-writing` and `task-observer` also have full write-ups above. `humanizer` moved from a raw
+skill here to the `humanizer@humanizer` plugin, once its real source (`blader/humanizer`) was
+confirmed. This list follows the same symlink convention as everything else: real files live
+in `skills/<name>/`, and `~/.claude/skills/<name>` is a symlink. Confirm this with
+`./status.sh`. Each category is one judgment call, not an official standard.
 
 - [Core & Meta Skills](#core--meta-skills) (3)
 - [Developer & Agent Tooling](#developer--agent-tooling) (8)
@@ -504,7 +529,11 @@ It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale 
 
 ## Bulk-installed plugins (2026-08-16)
 
-Installed via `claude plugin install` from marketplaces added the same day (superpowers, ai-toolkit, mattpocock, terrashark, anthropic-agent-skills, conorluddy, playwright-skill, web-asset-generator-marketplace, frontend-slides, expo-plugins, trailofbits, claude-plugins-official). Code isn't copied here — same convention as claude-mem/claude-code-setup above: this is just the index. Run `claude plugin list` for live status.
+These plugins were installed with `claude plugin install`, from marketplaces added the same
+day: superpowers, ai-toolkit, mattpocock, terrashark, anthropic-agent-skills, conorluddy,
+playwright-skill, web-asset-generator-marketplace, frontend-slides, expo-plugins, trailofbits,
+and claude-plugins-official. Their code is not copied here, the same way as claude-mem and
+claude-code-setup above. This table is only an index. Run `claude plugin list` for live status.
 
 | Plugin | Marketplace | Description |
 |---|---|---|
@@ -569,16 +598,20 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 
 ## Instagram-sourced (2026-08-16)
 
-Sourced from 4 reels — a 22-item "22 tools I run" graphic (`charliehills`) and a 10-repo
-video-editing carousel (`gobi_automates`). Two other reels (`heyikjot`'s "Brag" skill,
-`kimball.ai`'s codebase-memory tool) were pure "comment X to get it" engagement bait with no
-public repo anywhere — skipped, not chased by commenting on your behalf. The graphic's star
-counts turned out to be real, not inflated as first assumed (verified against the live GitHub
-API before installing anything) — two names had no matching repo at all (`emil`, `find-skills`
-as bare names) until you supplied the actual monorepo links; both are now correctly sourced
-below. 14 items became Claude Code plugins (added to the table above), 4 became raw skills
-(`gstack`, `video-use`, `find-skills`, `emil-design-eng` — in the "All skills" list above). The
-rest are real CLI tools and apps, not Claude skills:
+These items came from 4 Instagram reels: a 22-item "22 tools I run" graphic from
+`charliehills`, and a 10-repo video-editing carousel from `gobi_automates`. Two other reels
+— `heyikjot`'s "Brag" skill and `kimball.ai`'s codebase-memory tool — were pure "comment X to
+get it" bait, with no public repo anywhere. Those two were skipped, and nobody posted a
+comment on the user's behalf to chase them.
+
+The graphic's star counts turned out to be real, not inflated as first assumed. Each one was
+checked against the live GitHub API before anything was installed. Two names, `emil` and
+`find-skills`, had no matching repo as bare names. The user supplied the correct monorepo
+links, and both are now sourced correctly below.
+
+14 items became Claude Code plugins (see the table above). 4 items became raw skills:
+`gstack`, `video-use`, `find-skills`, and `emil-design-eng` (see the "All skills" list above).
+The rest are real CLI tools and apps, not Claude skills:
 
 | Tool | Installed via | What it's for |
 |---|---|---|
@@ -591,6 +624,24 @@ rest are real CLI tools and apps, not Claude skills:
 | `chatterbox-tts` | attempted, **not installed as a tool** | Voice-cloning TTS — it's a Python *library* (`from chatterbox.tts import ChatterboxTTS`), not a CLI; `uv tool install` correctly refused to create a broken shim. Use it via `uv add chatterbox-tts` inside an actual project instead |
 | `MoneyPrinterTurbo` | cloned to `~/Developer/MoneyPrinterTurbo` | Full app: topic/keyword → AI-generated short video. Needs your own LLM + TTS API keys in its config before it runs — not set up |
 | `obsidian-wiki` | cloned to `~/Developer/obsidian-wiki` | 40-skill framework for building a personal "digital brain" in Obsidian, incl. its own bundled `skill-creator`. Has a `setup.sh` and expects a vault — not run, this is its own project to configure deliberately, not a drop-in skill |
+
+## What runs on its own, and what needs setup
+
+This table tracks two things. First, what starts by itself, with no action from you. Second,
+what needs an install step or config before it works at all.
+
+| Thing | Starts on its own? | What it needs |
+|---|---|---|
+| Serena MCP server | Yes. It starts when a skill that needs it runs. Right now, only `zeroize-audit` needs it. | `uv`/`uvx` on PATH (already present). The first run clones the Serena repo, so it needs network access once. |
+| gstack `Stop` hook | Yes. It runs at the end of every Claude Code session. | `bun` on PATH (already present). Already registered in `~/.claude/settings.json`. |
+| claude-mem capture hooks | Yes. They capture tool usage during any session, as soon as the plugin is enabled. | Nothing extra. The **worker** that summarizes and injects memory does not start on its own — see the next row. |
+| claude-mem worker | No. It does not start after a reboot. | Run `npx claude-mem start` by hand. |
+| OmniRoute daemon | No. It does not start after a reboot. | Run `omniroute serve --daemon --no-open` by hand. It also needs an account — set a password at http://localhost:20128/login — before the MCP server can register. |
+| MoneyPrinterTurbo | No. It is only cloned, not configured. | Add your own LLM and TTS API keys to its config before it runs at all. |
+| obsidian-wiki | No. It is only cloned, not configured. | Set up a vault and run its `setup.sh` before it works. |
+| manim | Yes, for basic animation. | Text-heavy scenes need a LaTeX install (MacTeX, several GB). This is not installed. |
+| chatterbox-tts | No. It is not a standalone tool. | Add it to a real project with `uv add chatterbox-tts`. It only works as a Python library. |
+| Headroom | No. It is not installed. | Needs a paid subscription and a manual `.dmg` install. The `brew` command in its own README does not work. |
 
 ## Maintenance
 
@@ -610,28 +661,30 @@ npx claude-mem start
 omniroute serve --daemon --no-open
 ```
 
-Restart Claude Code after plugin changes — they load at session start.
+Restart Claude Code after any plugin change. Plugins load only at session start.
 
 ### Adding a skill
 ```bash
 mkdir -p ~/claude-toolkit/skills/<name>          # or git clone straight into skills/
 ln -sfn ~/claude-toolkit/skills/<name> ~/.claude/skills/<name>
 ```
-Name the folder to match the `name:` in its frontmatter. Then add a row to the table at the
-top and a section saying what it is, where it came from, and anything that bit you.
-If you cloned it from GitHub, add it as a submodule instead — see below.
+Name the folder to match the `name:` field in its frontmatter. Then add a row to the table
+at the top, and a section that says what the skill does, where it came from, and any problem
+you hit. If you cloned the skill from GitHub, add it as a submodule instead. See the section
+below.
 
 ## This folder is a git repo
 
-Synced to a **private** GitHub repo so it survives a machine wipe.
+This repo syncs to a **private** GitHub repo, so it survives a machine wipe.
 
 ```bash
 cd ~/claude-toolkit
 git add -A && git commit -m "..." && git push
 ```
 
-`skills/task-observer` and `skills/gstack` are **submodules** pointing at their upstream
-projects — code isn't copied into this repo, just a pointer to a commit. Practical consequences:
+`skills/task-observer` and `skills/gstack` are **submodules**. Each one points at its
+upstream project. This repo does not copy their code, only a pointer to one commit. This has
+some practical effects:
 
 ```bash
 # cloning this toolkit onto a new machine
@@ -648,16 +701,18 @@ git submodule update --remote skills/gstack
 git add skills/gstack && git commit -m "bump gstack"
 ```
 
-If you forget `--recurse-submodules` on clone, submodule folders show up empty —
-`git submodule update --init` fixes it.
+If you forget `--recurse-submodules` when you clone, submodule folders appear empty. Run
+`git submodule update --init` to fix this.
 
-**gstack gotchas, both from 2026-08-16:**
-- Its README embeds an instruction telling Claude to auto-edit your global `CLAUDE.md` (register
-  17+ slash commands, ban `mcp__claude-in-chrome__*` in favor of its own `/browse`) — that's
-  content from the repo, not from you, and it was **not** followed. Do it yourself if you want it.
-- Its `./setup` script silently registered a `Stop` hook in `~/.claude/settings.json`
-  (`_gstack_source: gstack-timeline-stop`, closes its own timeline entries when a session ends) —
-  a persistent config change made without asking first. It fails open and makes no network
-  calls (read it: `skills/gstack/hosts/claude/hooks/timeline-stop-hook`), but a backup
-  (`settings.json.bak.20260816-202547`) exists if you'd rather remove it:
+**Two gstack problems, found on 2026-08-16:**
+- Its README contains an instruction that tells Claude to auto-edit your global `CLAUDE.md`.
+  This instruction asks Claude to register 17+ slash commands, and to ban
+  `mcp__claude-in-chrome__*` in favor of gstack's own `/browse`. This instruction comes from
+  the repo's content, not from the user, so it was **not** followed. Do this yourself if you
+  want it.
+- Its `./setup` script silently registered a `Stop` hook in `~/.claude/settings.json` (source:
+  `gstack-timeline-stop`). This hook closes gstack's own timeline entries when a session ends.
+  This is a persistent config change, made without asking first. The hook fails open and makes
+  no network calls — read it at `skills/gstack/hosts/claude/hooks/timeline-stop-hook`. A backup
+  file exists at `settings.json.bak.20260816-202547`, if you would rather remove the hook:
   `~/claude-toolkit/skills/gstack/bin/gstack-settings-hook remove-source --source gstack-timeline-stop`
