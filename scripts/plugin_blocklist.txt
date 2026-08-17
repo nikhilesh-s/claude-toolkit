@@ -1,0 +1,11 @@
+# Plugins Arnav installs that Nik does NOT want.
+# The daily sync would otherwise reinstall these every night at 21:00.
+# One `name@marketplace` per line. Blank lines and # comments ignored.
+#
+# To un-block something, delete its line and run:
+#   ./scripts/nik_install_plugins.sh
+
+# Pulls in the Serena MCP server (oraios/serena). Serena auto-starts a
+# background process per project, opens a dashboard on 127.0.0.1:24282, and
+# adds a macOS menu-bar tray icon. Removed 2026-08-17.
+zeroize-audit@trailofbits

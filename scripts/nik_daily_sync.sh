@@ -22,6 +22,14 @@
 # that runs third-party code, which is your call, not a cron job's.
 set -uo pipefail
 
+# Real interpreter, not whatever is on PATH. The modern-python@trailofbits
+# plugin drops a shim that rewrites `python3` to `uv run python`, which fails
+# outside a uv project and silently returns nothing — that made this script
+# read every plugin as "missing" and try to reinstall all of them.
+PY="$(command -v /opt/homebrew/bin/python3 2>/dev/null \
+   || command -v /usr/bin/python3 2>/dev/null \
+   || command -v python3)"
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
@@ -179,7 +187,7 @@ fi
 # --- post-merge repair ------------------------------------------------------
 git submodule update --init --recursive >>"$LOG" 2>&1
 
-python3 - >>"$LOG" 2>&1 <<'PY'
+"$PY" - >>"$LOG" 2>&1 <<'PY'
 import os, pathlib
 root = pathlib.Path(os.getcwd())
 PREFIX = '/Users/arnavkakani/claude-toolkit/'
@@ -220,7 +228,7 @@ if [ "$AUTO_INSTALL_PLUGINS" = 1 ] && [ -n "$MISSING_PLUGINS" ]; then
   fi
 fi
 
-python3 scripts/nik_inventory.py >>"$LOG" 2>&1
+"$PY" scripts/nik_inventory.py >>"$LOG" 2>&1
 
 BROKEN="$(find skills -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l | tr -d ' ')"
 log "broken symlinks after repair: $BROKEN"

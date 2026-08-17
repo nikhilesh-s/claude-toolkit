@@ -392,6 +392,53 @@ job then notifies you and logs the command instead of running it. Nothing else c
 Never use a bare `claude plugin install` — it reaches one profile only. See
 [Two apps, two accounts](#two-apps-two-accounts-what-carries-over).
 
+### Blocking a plugin you do not want
+
+`scripts/plugin_blocklist.txt` lists plugins the daily job must never install,
+one `name@marketplace` per line. Without it the 21:00 job reinstalls anything you
+remove, that same night.
+
+Currently blocked:
+
+| Plugin | Why |
+|---|---|
+| `zeroize-audit@trailofbits` | pulls in the Serena MCP server (`oraios/serena`), which auto-starts a background process per project, opens a dashboard on `127.0.0.1:24282`, and adds a macOS menu-bar tray icon. Removed 2026-08-17 |
+
+To remove a plugin properly:
+
+```bash
+echo 'name@marketplace' >> scripts/plugin_blocklist.txt   # stop it coming back
+for D in "$HOME/.claude" "$HOME/.claude-nebula"; do
+  CLAUDE_CONFIG_DIR="$D" /opt/homebrew/bin/claude plugin uninstall name@marketplace
+done
+```
+
+Blocklist first, then uninstall — otherwise the next sync undoes you.
+
+**Watch for project-scope leftovers.** `plugin uninstall` can report success while
+leaving a `scope: project` entry in `plugins/installed_plugins.json`. Check with:
+
+```bash
+/usr/bin/python3 -c "import json;print(list(json.load(open('$HOME/.claude-nebula/plugins/installed_plugins.json'))['plugins']))"
+```
+
+### A plugin shimmed `python3`, and it broke these scripts
+
+`modern-python@trailofbits` installs a shim that rewrites `python3` to
+`uv run python`. Outside a uv project that fails and returns nothing — so
+`nik_install_plugins.sh` read *every* plugin as missing and would have reinstalled
+all 69 nightly.
+
+Every `nik_*` script now resolves a real interpreter up front:
+
+```bash
+PY="$(command -v /opt/homebrew/bin/python3 || command -v /usr/bin/python3 || command -v python3)"
+```
+
+The general lesson: plugins can change how your shell behaves. If a script starts
+misreading state for no obvious reason, check whether something shimmed the tool
+it depends on.
+
 ### How marketplace names get resolved
 
 Upstream records a plugin as `<name>@<marketplace>`, but installing needs `owner/repo`, and
@@ -543,8 +590,8 @@ Generated from disk. Do not edit by hand — run `python3 scripts/nik_inventory.
 | …broken symlinks | 0 |
 | …present in repo but not installed | 0 |
 | …that come from the gstack submodule | 54 |
-| Skills installed outside this repo | 2 |
-| Plugins installed | 70 (68 enabled) |
+| Skills installed outside this repo | 28 |
+| Plugins installed | 69 (67 enabled) |
 | Skills naming a credential env var | 68 |
 | Skills naming an MCP server | 42 |
 
@@ -557,6 +604,32 @@ from upstream will never touch them.
 |---|---|---|---|---|
 | `humanizer` | symlink | `.claude-nebula`, `.claude` | `~/.agents/skills/humanizer` | Remove signs of AI-generated writing from text. Use when editing or reviewing t… |
 | `parametric-3d-printing` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/parametric-3d-printing` | Use this skill when the user wants to design a 3D-printable physical object the… |
+| `captions-overlay` | real folder | `.claude` | `~/.claude/skills/captions-overlay` | Overlay doctrine for the embedded-captions workflow — the caption MODEL (drop /… |
+| `changelog-video` | real folder | `.claude` | `~/.claude/skills/changelog-video` | Turn a weekly changelog .md into a finished branded changelog video (square 108… |
+| `cut-the-curve` | real folder | `.claude` | `~/.claude/skills/cut-the-curve` | The technique catalog: five velocity-matched SEAMS (zoom-through, INVERSE zoom-… |
+| `embedded-captions` | real folder | `.claude` | `~/.claude/skills/embedded-captions` | Add captions or subtitles to an existing single-subject talking-head video with… |
+| `faceless-explainer` | real folder | `.claude` | `~/.claude/skills/faceless-explainer` | Turn arbitrary text — an article, notes, a topic, a brief — into a faceless exp… |
+| `figma` | real folder | `.claude` | `~/.claude/skills/figma` | Import Figma content into a HyperFrames composition — rendered assets, brand to… |
+| `general-video` | real folder | `.claude` | `~/.claude/skills/general-video` | Author or edit a custom HyperFrames composition when no specialized workflow fi… |
+| `hyperframes` | real folder | `.claude` | `~/.claude/skills/hyperframes` | Mandatory entry point: read this first for any request to make, create, edit, a… |
+| `hyperframes-animation` | real folder | `.claude` | `~/.claude/skills/hyperframes-animation` | All animation knowledge for HyperFrames — atomic motion rules, multi-phase scen… |
+| `hyperframes-audio` | real folder | `.claude` | `~/.claude/skills/hyperframes-audio` | Use when audio already placed in a HyperFrames composition needs to be mixed: a… |
+| `hyperframes-cli` | real folder | `.claude` | `~/.claude/skills/hyperframes-cli` | Use the HyperFrames CLI development loop: init, add, catalog, capture, lint, ch… |
+| `hyperframes-core` | real folder | `.claude` | `~/.claude/skills/hyperframes-core` | The HyperFrames composition contract — build one renderable project. Use for co… |
+| `hyperframes-creative` | real folder | `.claude` | `~/.claude/skills/hyperframes-creative` | Non-animation creative direction for HyperFrames videos. Use for design spec (f… |
+| `hyperframes-keyframes` | real folder | `.claude` | `~/.claude/skills/hyperframes-keyframes` | Use when a HyperFrames composition needs seek-safe 2D/3D keyframes, GSAP timeli… |
+| `hyperframes-registry` | real folder | `.claude` | `~/.claude/skills/hyperframes-registry` | Install, discover, and wire registry blocks and components into HyperFrames com… |
+| `media-use` | real folder | `.claude` | `~/.claude/skills/media-use` | Agent Media OS, the single skill for every media need in a HyperFrames project.… |
+| `motion-doctrine` | real folder | `.claude` | `~/.claude/skills/motion-doctrine` | GATEWAY — load FIRST before composing any HyperFrames animation or video. The h… |
+| `motion-graphics` | real folder | `.claude` | `~/.claude/skills/motion-graphics` | A short, design-led motion graphic where motion is the message — kinetic typogr… |
+| `music-to-video` | real folder | `.claude` | `~/.claude/skills/music-to-video` | Turn a music track (an audio file, a video to pull audio from, or a track gener… |
+| `oversized-cursor` | real folder | `.claude` | `~/.claude/skills/oversized-cursor` | House-style oversized macOS cursor technique for HyperFrames launch videos. Loa… |
+| `pr-to-video` | real folder | `.claude` | `~/.claude/skills/pr-to-video` | Turn a GitHub pull request (a PR URL, owner/repo#N, or 'this PR' in a checked-o… |
+| `product-launch-video` | real folder | `.claude` | `~/.claude/skills/product-launch-video` | Turn a product or marketing URL, pasted script, or brief into a product launch… |
+| `remotion-to-hyperframes` | real folder | `.claude` | `~/.claude/skills/remotion-to-hyperframes` | Port an existing Remotion (React) composition''s source to HyperFrames HTML. Us… |
+| `seam-craft` | real folder | `.claude` | `~/.claude/skills/seam-craft` | Render-correctness doctrine for scene-to-scene seams in HyperFrames launch vide… |
+| `slideshow` | real folder | `.claude` | `~/.claude/skills/slideshow` | Author a HyperFrames slideshow — a presentation, pitch deck, or interactive dec… |
+| `talking-head-recut` | real folder | `.claude` | `~/.claude/skills/talking-head-recut` | Package an existing talking-head / interview / podcast video with timed, design… |
 
 ### Plugins
 
@@ -634,9 +707,8 @@ A plugin can carry its own skills, its own slash commands, and its own MCP serve
 | `web-asset-generator@web-asset-generator-marketplace` | 1.0.0 | yes | `alonw0/web-asset-generator` | no | 1 | 0 | 0 | — |
 | `writing-lean-proofs@trailofbits` | 0.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 | `yara-authoring@trailofbits` | 2.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
-| `zeroize-audit@trailofbits` | 0.1.2 | yes | `trailofbits/skills` | no | 1 | 0 | 11 | `serena` |
 
-That is **316 more skills** on top of the 230 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
+That is **315 more skills** on top of the 230 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
 
 ### MCP servers
 
@@ -647,7 +719,6 @@ That is **316 more skills** on top of the 230 in this repo. Plugin skills are ve
 | `mcp-search` | `claude-mem@thedotmack` | stdio | `node` | none |
 | `codex` | `second-opinion@trailofbits` | stdio | `codex` | none |
 | `vercel` | `vercel@claude-plugins-official` | http | `https://mcp.vercel.com` | OAuth |
-| `serena` | `zeroize-audit@trailofbits` | stdio | `uvx` | none |
 
 #### Registered through the Claude Code CLI
 

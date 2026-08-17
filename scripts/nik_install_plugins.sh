@@ -18,6 +18,13 @@
 # drop the nik_install_plugins.sh call from nik_daily_sync.sh.
 set -uo pipefail
 
+# Real interpreter, not whatever is on PATH. modern-python@trailofbits shims
+# `python3` to `uv run python`, which fails outside a uv project.
+PY="$(command -v /opt/homebrew/bin/python3 2>/dev/null \
+   || command -v /usr/bin/python3 2>/dev/null \
+   || command -v python3)"
+
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
@@ -33,11 +40,21 @@ case "${1:-}" in
   --list)    MODE="list" ;;
 esac
 
+# Plugins Arnav uses that Nik does not want. The daily job would otherwise
+# reinstall these every night. One id per line, blank lines and # comments ok.
+BLOCKLIST="$REPO_ROOT/scripts/plugin_blocklist.txt"
+
+is_blocked() {
+  [ -f "$BLOCKLIST" ] || return 1
+  grep -v '^[[:space:]]*#' "$BLOCKLIST" 2>/dev/null \
+    | grep -v '^[[:space:]]*$' | grep -qxF "$1"
+}
+
 [ -x "$CB" ] || { echo "claude binary not found at $CB" >&2; exit 1; }
 
 # ---------------------------------------------------------------- what exists
 installed_ids() {
-  python3 -c "
+  "$PY" -c "
 import json,os,sys
 p=os.path.join(sys.argv[1],'plugins','installed_plugins.json')
 try: print('\n'.join(json.load(open(p)).get('plugins',{}).keys()))
@@ -52,6 +69,7 @@ missing_for_profile() {
   git show upstream/main:scripts/skill_index.tsv 2>/dev/null \
     | awk -F'\t' '$1=="plugin" && $2!="" && $3!="" {print $2"@"$3}' | sort -u \
     | while IFS= read -r id; do
+        is_blocked "$id" && continue
         printf '%s\n' "$have" | grep -qxF "$id" || echo "$id"
       done
 }

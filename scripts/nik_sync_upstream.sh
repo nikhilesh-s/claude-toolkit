@@ -19,6 +19,13 @@
 #   ./scripts/nik_sync_upstream.sh --preview    show what upstream changed, merge nothing
 set -euo pipefail
 
+# Real interpreter, not whatever is on PATH. modern-python@trailofbits shims
+# `python3` to `uv run python`, which fails outside a uv project.
+PY="$(command -v /opt/homebrew/bin/python3 2>/dev/null \
+   || command -v /usr/bin/python3 2>/dev/null \
+   || command -v python3)"
+
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
@@ -104,7 +111,7 @@ git submodule update --init --recursive
 
 # --- 5. de-hardcode upstream's absolute symlinks -----------------------------
 info "Rewriting absolute symlinks that point at /Users/arnavkakani"
-python3 - <<'PY'
+"$PY" - <<'PY'
 import os, pathlib
 root = pathlib.Path(__file__).resolve().parent if False else pathlib.Path(os.getcwd())
 PREFIX = '/Users/arnavkakani/claude-toolkit/'
@@ -131,7 +138,7 @@ info "Linking skills into every Claude config dir"
 ./scripts/nik_install_skills.sh
 
 info "Regenerating the README inventory"
-python3 scripts/nik_inventory.py
+"$PY" scripts/nik_inventory.py
 
 info "Done"
 git status --short
