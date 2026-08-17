@@ -630,19 +630,34 @@ cd ~/claude-toolkit
 git add -A && git commit -m "..." && git push
 ```
 
-`skills/task-observer` is a **submodule** pointing at the upstream project — its code isn't
-copied into this repo, just a pointer to a commit. Practical consequences:
+`skills/task-observer` and `skills/gstack` are **submodules** pointing at their upstream
+projects — code isn't copied into this repo, just a pointer to a commit. Practical consequences:
 
 ```bash
 # cloning this toolkit onto a new machine
 git clone --recurse-submodules <this repo> ~/claude-toolkit
 # ...then relink the skills, since symlinks into ~/.claude aren't tracked:
 for s in ~/claude-toolkit/skills/*/; do ln -sfn "$s" ~/.claude/skills/"$(basename "$s")"; done
+# gstack additionally needs its own setup rerun after a fresh clone (bun required):
+(cd ~/claude-toolkit/skills/gstack && ./setup)
 
-# pulling upstream updates to task-observer
+# pulling upstream updates
 git submodule update --remote skills/task-observer
 git add skills/task-observer && git commit -m "bump task-observer"
+git submodule update --remote skills/gstack
+git add skills/gstack && git commit -m "bump gstack"
 ```
 
-If you forget `--recurse-submodules` on clone, `skills/task-observer` shows up empty —
+If you forget `--recurse-submodules` on clone, submodule folders show up empty —
 `git submodule update --init` fixes it.
+
+**gstack gotchas, both from 2026-08-16:**
+- Its README embeds an instruction telling Claude to auto-edit your global `CLAUDE.md` (register
+  17+ slash commands, ban `mcp__claude-in-chrome__*` in favor of its own `/browse`) — that's
+  content from the repo, not from you, and it was **not** followed. Do it yourself if you want it.
+- Its `./setup` script silently registered a `Stop` hook in `~/.claude/settings.json`
+  (`_gstack_source: gstack-timeline-stop`, closes its own timeline entries when a session ends) —
+  a persistent config change made without asking first. It fails open and makes no network
+  calls (read it: `skills/gstack/hosts/claude/hooks/timeline-stop-hook`), but a backup
+  (`settings.json.bak.20260816-202547`) exists if you'd rather remove it:
+  `~/claude-toolkit/skills/gstack/bin/gstack-settings-hook remove-source --source gstack-timeline-stop`
