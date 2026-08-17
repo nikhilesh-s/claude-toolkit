@@ -22,7 +22,6 @@ SKILLS_DIR = os.path.join(REPO_ROOT, "skills")
 # when they were added. Everything not listed here defaults to
 # K-Dense-AI/claude-scientific-skills, the source of the 2026-08-16 bulk install.
 SOURCE_OVERRIDES = {
-    "humanizer": "loose file, ~/Downloads (2026-08-08) — origin unknown",
     "ste-writing": "loose file, ~/Downloads (2026-08-08)",
     "task-observer": "rebelytics/one-skill-to-rule-them-all (submodule)",
     "finding-duplicate-functions": "obra/superpowers-lab",
@@ -31,18 +30,25 @@ SOURCE_OVERRIDES = {
     "windows-vm": "obra/superpowers-lab",
     "ffuf-web-fuzzing": "jthack/ffuf_claude_skill",
     "d3-viz": "chrisvoncsefalvay/claude-d3js-skill",
+    "gstack": "garrytan/gstack",
+    "video-use": "browser-use/video-use",
+    "find-skills": "vercel-labs/skills (find-skills)",
+    "emil-design-eng": "emilkowalski/skills (emil-design-eng)",
 }
+# humanizer used to be a loose ~/Downloads file of unknown origin; its real source
+# turned out to be blader/humanizer (confirmed byte-identical 2026-08-16), so it's
+# now tracked as the humanizer@humanizer plugin instead of a raw skill here.
 DEFAULT_SOURCE = "K-Dense-AI/claude-scientific-skills"
 
 # One category per skill. A skill not listed here is reported as uncategorized
 # (see --check) rather than silently dropped from the README.
 CATEGORIES = {
     "Core & Meta Skills": [
-        "humanizer", "ste-writing", "task-observer", "autoskill",
+        "ste-writing", "task-observer", "autoskill",
     ],
     "Developer & Agent Tooling": [
         "finding-duplicate-functions", "mcp-cli", "using-tmux-for-interactive-commands",
-        "windows-vm", "pi-agent", "get-available-resources",
+        "windows-vm", "pi-agent", "get-available-resources", "gstack", "find-skills",
     ],
     "Security & Pentesting": [
         "ffuf-web-fuzzing",
@@ -103,6 +109,12 @@ CATEGORIES = {
     ],
     "Geospatial & Earth Science": [
         "geomaster", "geopandas",
+    ],
+    "Media & Content Creation": [
+        "video-use",
+    ],
+    "Design & Frontend": [
+        "emil-design-eng",
     ],
 }
 

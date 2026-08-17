@@ -6,16 +6,15 @@ Everything Claude Code related on this machine, in one place. Set up 2026-08-08.
 ~/claude-toolkit/
 ├── README.md          you are here — what each thing is and how to fix it
 ├── status.sh          ./status.sh → health check for all of it
+├── scripts/           categorize_skills.py → regenerates "All skills" below
 └── skills/            the real files; ~/.claude/skills/ just symlinks in here
-    ├── humanizer/
     ├── ste-writing/
     ├── task-observer/     (a git repo — `git pull` to update)
-    └── ...168 more        bulk-installed 2026-08-16, see "All skills" below
+    └── ...172 more        see "All skills" below (172 bulk + these 2)
 ```
 
 | Thing | Type | Status |
 |---|---|---|
-| [humanizer](#humanizer) | Skill | ✅ active |
 | [ste-writing](#ste-writing) | Skill | ✅ active |
 | [task-observer](#task-observer) | Skill | ✅ active |
 | [claude-mem](#claude-mem) | Plugin + daemon | ✅ active |
@@ -24,6 +23,7 @@ Everything Claude Code related on this machine, in one place. Set up 2026-08-08.
 | [Headroom](#headroom) | macOS app | ⛔ not installed |
 | [Serena](#serena) | MCP server (code intel) | ✅ active, auto-starts |
 | [status.sh](#statussh) | Script | ✅ working |
+| [Instagram-sourced tools](#instagram-sourced-2026-08-16) | CLI tools + apps | ✅ mostly active |
 
 **Skills** genuinely live here — `~/.claude/skills/` contains only symlinks pointing back into
 `skills/`, so edit files here and the change is live. **Plugins and OmniRoute don't** — they
@@ -50,18 +50,15 @@ across 50 skills in six months.
   frontmatter in `SKILL.md` rather than deleting the skill.
 - Read `USER-GUIDE.md` in the repo before leaning on it; it expects an observation log.
 
-## humanizer
+## humanizer (moved)
 
-Strips signs of AI-generated writing from text — inflated symbolism, promotional language,
-em dash overuse, rule of three, negative parallelisms, filler. Built on Wikipedia's
-"Signs of AI writing" guide (WikiProject AI Cleanup).
-
-- v2.9.1, MIT. Installed from a loose `SKILL.md` in `~/Downloads` on 2026-08-08.
-- Source of truth is `skills/humanizer/SKILL.md` here — the Downloads copy is not tracked and
-  can be deleted.
-- Self-contained, no companion files.
-- Origin unknown — it arrived as a bare file with no repo link, so there's no upstream to pull
-  updates from. If you find where it came from, add the URL here.
+Used to live here as `skills/humanizer/SKILL.md`, installed 2026-08-08 from a loose file in
+`~/Downloads` with **no known origin**. On 2026-08-16, `blader/humanizer` turned up in the
+`charliehills` Instagram list — diffed byte-identical against the untracked copy. That confirms
+the real source, so it's no longer worth carrying as an origin-unknown raw skill: removed from
+`skills/`, now tracked properly as the `humanizer@humanizer` plugin (see
+[Bulk-installed plugins](#bulk-installed-plugins-2026-08-16)) — same behavior, real provenance,
+updatable with `claude plugin update humanizer@humanizer`.
 
 ## ste-writing
 
@@ -225,27 +222,17 @@ fetched via `initial_instructions`) tell Claude to prefer its tools over built-i
 
 ---
 
-## All skills (171)
+## All skills (174)
 
-Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s
-frontmatter. Regenerate after adding or removing a skill:
+Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s frontmatter. Regenerate after adding or removing a skill:
 ```bash
 uv run python scripts/categorize_skills.py --check   # flags anything uncategorized, exits 1 if so
 uv run python scripts/categorize_skills.py            # prints the replacement section
 ```
-It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale snapshot — a new
-skill shows up as "uncategorized" in `--check` rather than silently missing from this list.
-`humanizer`, `ste-writing`, and
-`task-observer` also have full write-ups above; everything else was bulk-installed on 2026-08-16
-from `obra/superpowers-lab`, `jthack/ffuf_claude_skill`, `chrisvoncsefalvay/claude-d3js-skill`, and
-`K-Dense-AI/claude-scientific-skills` (via `travisvn/awesome-claude-skills`). Same symlink
-convention as everything else: real files live in `skills/<name>/`, `~/.claude/skills/<name>` is
-a symlink — confirm with `./status.sh`. Categories are one judgment call per skill, not an
-upstream standard — a skill that spans two domains (e.g. `pyhealth`, ML *and* clinical) is filed
-under whichever felt primary.
+It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale snapshot — a new skill shows up as "uncategorized" in `--check` rather than silently missing from this list. `ste-writing` and `task-observer` also have full write-ups above; `humanizer` moved from a raw skill here to the `humanizer@humanizer` plugin once its real source (`blader/humanizer`) was confirmed. Same symlink convention as everything else: real files live in `skills/<name>/`, `~/.claude/skills/<name>` is a symlink — confirm with `./status.sh`. Categories are one judgment call per skill, not an upstream standard.
 
-- [Core & Meta Skills](#core--meta-skills) (4)
-- [Developer & Agent Tooling](#developer--agent-tooling) (6)
+- [Core & Meta Skills](#core--meta-skills) (3)
+- [Developer & Agent Tooling](#developer--agent-tooling) (8)
 - [Security & Pentesting](#security--pentesting) (1)
 - [Documents, Slides & Reports](#documents-slides--reports) (10)
 - [Data Visualization & Graphics](#data-visualization--graphics) (8)
@@ -258,13 +245,14 @@ under whichever felt primary.
 - [Clinical & Healthcare](#clinical--healthcare) (7)
 - [Lab Operations & Automation](#lab-operations--automation) (7)
 - [Geospatial & Earth Science](#geospatial--earth-science) (2)
+- [Media & Content Creation](#media--content-creation) (1)
+- [Design & Frontend](#design--frontend) (1)
 
 ### Core & Meta Skills
 
 | Skill | Source | Description |
 |---|---|---|
 | `autoskill` | K-Dense-AI/claude-scientific-skills | Observe the user's screen via screenpipe, detect repeated research workflows, match them against existing scientific-agent-skil... |
-| `humanizer` | loose file, ~/Downloads (2026-08-08) — origin unknown | Remove signs of AI-generated writing from text. Use when editing or reviewing text to make it sound more natural and human-writ... |
 | `ste-writing` | loose file, ~/Downloads (2026-08-08) | Rewrite prose (docs, READMEs, PR descriptions, error messages, release notes, comments — never code) into ASD-STE100 Simplified... |
 | `task-observer` | rebelytics/one-skill-to-rule-them-all (submodule) | Monitors task execution for skill improvement opportunities. Use this skill during ANY multi-step task, agentic workflow, or su... |
 
@@ -272,8 +260,10 @@ under whichever felt primary.
 
 | Skill | Source | Description |
 |---|---|---|
+| `find-skills` | vercel-labs/skills (find-skills) | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a s... |
 | `finding-duplicate-functions` | obra/superpowers-lab | Use when auditing a codebase for semantic duplication - functions that do the same thing but have different names or implementa... |
 | `get-available-resources` | K-Dense-AI/claude-scientific-skills | Detect host inventory and effective CPU, memory, disk, scheduler, container, and accelerator limits when a user asks for resour... |
+| `gstack` | garrytan/gstack | Router for the gstack skill suite. (gstack) |
 | `mcp-cli` | obra/superpowers-lab | Use MCP servers on-demand via the mcp CLI tool - discover tools, resources, and prompts without polluting context with pre-load... |
 | `pi-agent` | K-Dense-AI/claude-scientific-skills | Build with and use Pi, the minimal terminal coding harness. Use for installing Pi, configuring providers/models/settings/enviro... |
 | `using-tmux-for-interactive-commands` | obra/superpowers-lab | Use when you need to run interactive CLI tools (vim, git rebase -i, Python REPL, etc.) that require real-time input/output - pr... |
@@ -500,6 +490,18 @@ under whichever felt primary.
 | `geomaster` | K-Dense-AI/claude-scientific-skills | Comprehensive geospatial science skill covering remote sensing, GIS, spatial analysis, machine learning for earth observation, ... |
 | `geopandas` | K-Dense-AI/claude-scientific-skills | Guidance and local audit tools for Python workflows that directly use GeoPandas GeoSeries, GeoDataFrame, spatial operations, or... |
 
+### Media & Content Creation
+
+| Skill | Source | Description |
+|---|---|---|
+| `video-use` | browser-use/video-use | Edit any video by conversation. Transcribe, cut, color grade, generate overlay animations, burn subtitles — for talking heads, ... |
+
+### Design & Frontend
+
+| Skill | Source | Description |
+|---|---|---|
+| `emil-design-eng` | emilkowalski/skills (emil-design-eng) | This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details th... |
+
 ## Bulk-installed plugins (2026-08-16)
 
 Installed via `claude plugin install` from marketplaces added the same day (superpowers, ai-toolkit, mattpocock, terrashark, anthropic-agent-skills, conorluddy, playwright-skill, web-asset-generator-marketplace, frontend-slides, expo-plugins, trailofbits, claude-plugins-official). Code isn't copied here — same convention as claude-mem/claude-code-setup above: this is just the index. Run `claude plugin list` for live status.
@@ -564,6 +566,31 @@ Installed via `claude plugin install` from marketplaces added the same day (supe
 | writing-lean-proofs | trailofbits | Structured Lean 4 proof writing and library design following Mathlib conventions |
 | yara-authoring | trailofbits | YARA-X detection rule authoring with linting and quality analysis |
 | zeroize-audit | trailofbits | Detects missing or compiler-optimized zeroization of sensitive data with assembly and control-flow analysis |
+
+## Instagram-sourced (2026-08-16)
+
+Sourced from 4 reels — a 22-item "22 tools I run" graphic (`charliehills`) and a 10-repo
+video-editing carousel (`gobi_automates`). Two other reels (`heyikjot`'s "Brag" skill,
+`kimball.ai`'s codebase-memory tool) were pure "comment X to get it" engagement bait with no
+public repo anywhere — skipped, not chased by commenting on your behalf. The graphic's star
+counts turned out to be real, not inflated as first assumed (verified against the live GitHub
+API before installing anything) — two names had no matching repo at all (`emil`, `find-skills`
+as bare names) until you supplied the actual monorepo links; both are now correctly sourced
+below. 14 items became Claude Code plugins (added to the table above), 4 became raw skills
+(`gstack`, `video-use`, `find-skills`, `emil-design-eng` — in the "All skills" list above). The
+rest are real CLI tools and apps, not Claude skills:
+
+| Tool | Installed via | What it's for |
+|---|---|---|
+| `yt-dlp` | `brew install yt-dlp` | Downloads video/audio from most sites |
+| `ffmpeg` | already present | Video/audio encoding — the engine under most editors |
+| `auto-editor` | `uv tool install auto-editor` | Strips silence/dead air from a raw take automatically |
+| `manim` | `uv tool install manim` | Programmatic math/technical animation (ManimCommunity). Text-heavy scenes want a LaTeX install (MacTeX, several GB) — not installed, add it separately if you hit that |
+| `graphify` (`graphifyy` on PyPI) | `uv tool install graphifyy` | `/graphify` — turns a codebase + docs into a queryable knowledge graph |
+| `claude-whisper` | `uv tool install claude-whisper` (needed `brew install portaudio` first, already present) | Voice-driven Claude Code — talk instead of typing |
+| `chatterbox-tts` | attempted, **not installed as a tool** | Voice-cloning TTS — it's a Python *library* (`from chatterbox.tts import ChatterboxTTS`), not a CLI; `uv tool install` correctly refused to create a broken shim. Use it via `uv add chatterbox-tts` inside an actual project instead |
+| `MoneyPrinterTurbo` | cloned to `~/Developer/MoneyPrinterTurbo` | Full app: topic/keyword → AI-generated short video. Needs your own LLM + TTS API keys in its config before it runs — not set up |
+| `obsidian-wiki` | cloned to `~/Developer/obsidian-wiki` | 40-skill framework for building a personal "digital brain" in Obsidian, incl. its own bundled `skill-creator`. Has a `setup.sh` and expects a vault — not run, this is its own project to configure deliberately, not a drop-in skill |
 
 ## Maintenance
 
