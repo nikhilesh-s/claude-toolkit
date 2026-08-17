@@ -34,6 +34,7 @@ SOURCE_OVERRIDES = {
     "video-use": "browser-use/video-use",
     "find-skills": "vercel-labs/skills (find-skills)",
     "emil-design-eng": "emilkowalski/skills (emil-design-eng)",
+    "which-skill": "written for this repo, 2026-08-16",
 }
 # humanizer used to be a loose ~/Downloads file of unknown origin; its real source
 # turned out to be blader/humanizer (confirmed byte-identical 2026-08-16), so it's
@@ -49,6 +50,7 @@ CATEGORIES = {
     "Developer & Agent Tooling": [
         "finding-duplicate-functions", "mcp-cli", "using-tmux-for-interactive-commands",
         "windows-vm", "pi-agent", "get-available-resources", "gstack", "find-skills",
+        "which-skill",
     ],
     "Security & Pentesting": [
         "ffuf-web-fuzzing",
