@@ -35,6 +35,29 @@ DRY_RUN=0
 
 mkdir -p "$LOG_DIR"
 
+# --- --report-plugins: every plugin upstream lists that is not installed here.
+# Runs on its own, touches nothing, needs no lock.
+if [ "${1:-}" = "--report-plugins" ]; then
+  git fetch --quiet upstream main 2>/dev/null
+  installed="$(python3 -c "
+import json,os
+p=os.path.expanduser('~/.claude/plugins/installed_plugins.json')
+try: print('\n'.join(json.load(open(p)).get('plugins',{}).keys()))
+except Exception: pass
+" 2>/dev/null)"
+  echo "Plugins Arnav lists that are NOT installed on this machine."
+  echo "Git cannot deliver these — a plugin is not a file in the repo."
+  echo "Install one with:  claude plugin install <id>"
+  echo
+  git show upstream/main:scripts/skill_index.tsv 2>/dev/null \
+    | awk -F'\t' '$1=="plugin" && NF>=4 {print $2"@"$3"\t"$4}' | sort -u \
+    | while IFS=$'\t' read -r id desc; do
+        printf '%s\n' "$installed" | grep -qxF "$id" && continue
+        printf '  %-42s %s\n' "$id" "$(printf '%.90s' "$desc")"
+      done
+  exit 0
+fi
+
 # Keep the log from growing without bound.
 if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 1000000 ]; then
   mv -f "$LOG" "$LOG.1"
@@ -108,23 +131,28 @@ printf '%s\n' "$NEW_COMMITS" | sed 's/^/    /' >>"$LOG"
 [ -n "$ADDED_SKILLS" ]   && { log "skills added:";   printf '%s\n' "$ADDED_SKILLS"   | sed 's/^/    + /' >>"$LOG"; }
 [ -n "$REMOVED_SKILLS" ] && { log "skills removed:"; printf '%s\n' "$REMOVED_SKILLS" | sed 's/^/    - /' >>"$LOG"; }
 
-# --- plugins upstream mentions that are not installed here ------------------
-# Arnav names plugins as `slug@marketplace` in his README. Pull those out of the
-# incoming diff and check them against what is actually installed here.
-PLUGIN_HITS="$(git diff "$BASE" "$UP" -- README.md 2>/dev/null \
-  | grep '^+' \
-  | grep -oE '\b[a-z0-9][a-z0-9._-]*@[a-z0-9][a-z0-9._-]*\b' \
-  | grep -vE '@(sha|v?[0-9]|types|babel|eslint)' \
-  | sort -u || true)"
-
-MISSING_PLUGINS=""
-if [ -n "$PLUGIN_HITS" ]; then
-  INSTALLED="$(python3 -c "
+# --- plugins upstream added that are not installed here ---------------------
+# Upstream keeps a machine-readable catalogue at scripts/skill_index.tsv:
+#     <kind>\t<name>\t<source>\t<description>
+# Plugin rows give the install id directly as <name>@<source>. Diffing that file
+# is far more reliable than scraping prose out of the README.
+installed_plugin_ids() {
+  python3 -c "
 import json,os
 p=os.path.expanduser('~/.claude/plugins/installed_plugins.json')
 try: print('\n'.join(json.load(open(p)).get('plugins',{}).keys()))
 except Exception: pass
-" 2>/dev/null)"
+" 2>/dev/null
+}
+
+PLUGIN_HITS="$(git diff "$BASE" "$UP" -- scripts/skill_index.tsv 2>/dev/null \
+  | grep '^+plugin' | sed 's/^+//' \
+  | awk -F'\t' 'NF>=3 && $2!="" && $3!="" {print $2"@"$3}' \
+  | sort -u || true)"
+
+MISSING_PLUGINS=""
+if [ -n "$PLUGIN_HITS" ]; then
+  INSTALLED="$(installed_plugin_ids)"
   while IFS= read -r cand; do
     [ -n "$cand" ] || continue
     printf '%s\n' "$INSTALLED" | grep -qxF "$cand" || MISSING_PLUGINS="$MISSING_PLUGINS$cand"$'\n'
