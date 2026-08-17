@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/ios-design-review/SKILL.md
+../gstack/ios-design-review/SKILL.md

@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/browse/PLAN-snapshot-dropdown-interactive.md
+../gstack/browse/PLAN-snapshot-dropdown-interactive.md

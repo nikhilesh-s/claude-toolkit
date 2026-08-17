@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/ios-qa/SKILL.md
+../gstack/ios-qa/SKILL.md

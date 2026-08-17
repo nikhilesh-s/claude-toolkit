@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/plan-eng-review/SKILL.md
+../gstack/plan-eng-review/SKILL.md

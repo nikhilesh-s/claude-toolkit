@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/freeze/SKILL.md
+../gstack/freeze/SKILL.md

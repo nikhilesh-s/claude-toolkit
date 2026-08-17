@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/autoplan/SKILL.md
+../gstack/autoplan/SKILL.md

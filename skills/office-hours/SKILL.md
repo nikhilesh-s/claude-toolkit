@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/office-hours/SKILL.md
+../gstack/office-hours/SKILL.md

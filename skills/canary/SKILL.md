@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/canary/SKILL.md
+../gstack/canary/SKILL.md

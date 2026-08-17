@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/design-shotgun/SKILL.md
+../gstack/design-shotgun/SKILL.md

@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/open-gstack-browser/SKILL.md
+../gstack/open-gstack-browser/SKILL.md

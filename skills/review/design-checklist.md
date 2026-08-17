@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/review/design-checklist.md
+../gstack/review/design-checklist.md

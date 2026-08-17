@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/codex/SKILL.md
+../gstack/codex/SKILL.md

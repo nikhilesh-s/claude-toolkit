@@ -1,1 +1,1 @@
-/Users/arnavkakani/claude-toolkit/skills/gstack/design-consultation/SKILL.md
+../gstack/design-consultation/SKILL.md
