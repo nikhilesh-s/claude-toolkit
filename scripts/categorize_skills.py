@@ -142,11 +142,27 @@ def extract_description(skill_md_path):
     return ""
 
 
+GSTACK_ROOT = os.path.realpath(os.path.join(SKILLS_DIR, "gstack"))
+# Two of gstack's ./setup outputs are real materialized files, not symlinks into the
+# gstack/ submodule, so the realpath check below doesn't catch them - same reasoning
+# as the symlinked ones: facets of gstack, not independent skills.
+GSTACK_EXTRA_FILES = {"_gstack-command", "connect-chrome"}
+
+
 def load_skills():
     skills = {}
     for name in sorted(os.listdir(SKILLS_DIR), key=str.lower):
         skill_md = os.path.join(SKILLS_DIR, name, "SKILL.md")
         if not os.path.isfile(skill_md):
+            continue
+        if name in GSTACK_EXTRA_FILES:
+            continue
+        if name != "gstack" and os.path.realpath(skill_md).startswith(GSTACK_ROOT + os.sep):
+            # gstack's own ./setup symlinks each of its ~55 sub-skills to a sibling
+            # directory here (browse/, qa/, ship/, ...) so Claude Code can discover
+            # them individually. They're facets of the single `gstack` entry, not
+            # independent skills with their own provenance — skip them so this list
+            # doesn't balloon into 55 near-duplicate rows every time gstack updates.
             continue
         desc = extract_description(skill_md).replace("\t", " ").replace("|", "\\|").strip()
         if len(desc) > 130:
