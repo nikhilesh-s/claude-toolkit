@@ -238,26 +238,17 @@ over the built-in ones, once loaded:
 
 ---
 
-## All skills (174)
+## All skills (175)
 
-This list covers every skill in `skills/`, grouped by purpose. A script generates it from
-each `SKILL.md` file's frontmatter. After you add or remove a skill, regenerate the list:
+Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s frontmatter. Regenerate after adding or removing a skill:
 ```bash
 uv run python scripts/categorize_skills.py --check   # flags anything uncategorized, exits 1 if so
 uv run python scripts/categorize_skills.py            # prints the replacement section
 ```
-The script reads `skills/*/SKILL.md` directly, so the list always matches the real files. It
-is never a stale snapshot. A new skill shows up as "uncategorized" in `--check`, instead of
-silently missing from this list.
-
-`ste-writing` and `task-observer` also have full write-ups above. `humanizer` moved from a raw
-skill here to the `humanizer@humanizer` plugin, once its real source (`blader/humanizer`) was
-confirmed. This list follows the same symlink convention as everything else: real files live
-in `skills/<name>/`, and `~/.claude/skills/<name>` is a symlink. Confirm this with
-`./status.sh`. Each category is one judgment call, not an official standard.
+It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale snapshot — a new skill shows up as "uncategorized" in `--check` rather than silently missing from this list. `ste-writing` and `task-observer` also have full write-ups above; `humanizer` moved from a raw skill here to the `humanizer@humanizer` plugin once its real source (`blader/humanizer`) was confirmed. Same symlink convention as everything else: real files live in `skills/<name>/`, `~/.claude/skills/<name>` is a symlink — confirm with `./status.sh`. Categories are one judgment call per skill, not an upstream standard.
 
 - [Core & Meta Skills](#core--meta-skills) (3)
-- [Developer & Agent Tooling](#developer--agent-tooling) (8)
+- [Developer & Agent Tooling](#developer--agent-tooling) (9)
 - [Security & Pentesting](#security--pentesting) (1)
 - [Documents, Slides & Reports](#documents-slides--reports) (10)
 - [Data Visualization & Graphics](#data-visualization--graphics) (8)
@@ -292,6 +283,7 @@ in `skills/<name>/`, and `~/.claude/skills/<name>` is a symlink. Confirm this wi
 | `mcp-cli` | obra/superpowers-lab | Use MCP servers on-demand via the mcp CLI tool - discover tools, resources, and prompts without polluting context with pre-load... |
 | `pi-agent` | K-Dense-AI/claude-scientific-skills | Build with and use Pi, the minimal terminal coding harness. Use for installing Pi, configuring providers/models/settings/enviro... |
 | `using-tmux-for-interactive-commands` | obra/superpowers-lab | Use when you need to run interactive CLI tools (vim, git rebase -i, Python REPL, etc.) that require real-time input/output - pr... |
+| `which-skill` | written for this repo, 2026-08-16 | Use when unsure which of the many installed skills or plugins fits a request. Runs a fast local index search instead of reasoni... |
 | `windows-vm` | obra/superpowers-lab | Create, manage, or connect to a headless Windows 11 VM running in Docker with SSH access. Use when the user wants to spin up, s... |
 
 ### Security & Pentesting
