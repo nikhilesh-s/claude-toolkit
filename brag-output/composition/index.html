@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>claude-toolkit brag</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        background: #0d1117;
+        color: #e6edf3;
+        font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0d1117;
+      }
+      .clip {
+        position: absolute;
+        inset: 0;
+        background: #0d1117;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .term {
+        font-size: 44px;
+        color: #e6edf3;
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+      }
+      .prompt { color: #39d353; }
+      .cursor {
+        display: inline-block;
+        width: 20px;
+        height: 44px;
+        background: #39d353;
+        vertical-align: text-bottom;
+      }
+      .answer {
+        font-size: 160px;
+        font-weight: 700;
+        color: #39d353;
+        position: absolute;
+        bottom: 140px;
+        right: 160px;
+      }
+      .cards {
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+      .card {
+        font-size: 56px;
+        padding: 28px 56px;
+        border: 2px solid #21262d;
+        border-radius: 10px;
+        background: #161b22;
+        width: 640px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .card .num { color: #39d353; font-weight: 700; }
+      .diff-wrap { font-size: 52px; display: flex; flex-direction: column; gap: 20px; align-items: flex-start; }
+      .diff-line { padding: 12px 32px; border-radius: 6px; }
+      .diff-minus { background: rgba(248, 81, 73, 0.15); color: #ff7b72; text-decoration: line-through; }
+      .diff-plus { background: rgba(63, 185, 80, 0.15); color: #56d364; }
+      .diff-caption { font-size: 32px; color: #8b949e; margin-top: 12px; }
+      .push-line { font-size: 44px; display: flex; flex-direction: column; gap: 24px; }
+      .arrow { color: #39d353; }
+      .outro-line { font-size: 52px; }
+      .title-card { font-size: 80px; font-weight: 700; color: #39d353; margin-top: 40px; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="brag"
+      data-start="0"
+      data-width="1920"
+      data-height="1080"
+      data-duration="20"
+    >
+      <!-- Scene 1: Hook — 0-3s -->
+      <section id="s1" class="clip" data-start="0" data-duration="3" data-track-index="1">
+        <div class="term">
+          <span class="prompt">$</span>
+          <span id="s1-cmd"></span><span id="s1-cursor" class="cursor"></span>
+        </div>
+        <div id="s1-answer" class="answer">175</div>
+      </section>
+
+      <!-- Scene 2: Stat reveal — 3-8s -->
+      <section id="s2" class="clip" data-start="3" data-duration="5" data-track-index="1">
+        <div class="cards">
+          <div id="s2-card1" class="card"><span>skills</span><span class="num">175</span></div>
+          <div id="s2-card2" class="card"><span>plugins</span><span class="num">72</span></div>
+          <div id="s2-card3" class="card"><span>README</span><span class="num">1</span></div>
+        </div>
+      </section>
+
+      <!-- Scene 3: The fix — 8-13s -->
+      <section id="s3" class="clip" data-start="8" data-duration="5" data-track-index="1">
+        <div class="diff-wrap">
+          <div id="s3-minus" class="diff-line diff-minus">-376,132 insertions</div>
+          <div id="s3-plus" class="diff-line diff-plus">+126 insertions</div>
+          <div class="diff-caption">caught our own bloat</div>
+        </div>
+      </section>
+
+      <!-- Scene 4: Ship it — 13-17s -->
+      <section id="s4" class="clip" data-start="13" data-duration="4" data-track-index="1">
+        <div class="push-line">
+          <div><span class="prompt">$</span> <span id="s4-cmd"></span><span id="s4-cursor" class="cursor"></span></div>
+          <div id="s4-confirm" class="arrow">main <span>&#8594;</span> main</div>
+        </div>
+      </section>
+
+      <!-- Scene 5: Outro — 17-20s -->
+      <section id="s5" class="clip" data-start="17" data-duration="3" data-track-index="1">
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div class="outro-line"><span id="s5-line"></span><span id="s5-cursor" class="cursor"></span></div>
+          <div id="s5-title" class="title-card">claude-toolkit</div>
+        </div>
+      </section>
+
+      <!-- Music bed, full length -->
+      <audio
+        id="music"
+        data-start="0"
+        data-duration="20"
+        data-track-index="9"
+        data-volume="0.35"
+        src="assets/music/theme.mp3"
+      ></audio>
+
+      <!-- Declarative SFX hits: one <audio> per moment, framework-scheduled (no manual play/pause) -->
+      <audio id="sfx-slam" data-start="2.9" data-duration="0.6" data-track-index="10" data-volume="0.6" src="assets/sfx/pop.ogg"></audio>
+      <audio id="sfx-card1" data-start="3.55" data-duration="0.6" data-track-index="10" data-volume="0.6" src="assets/sfx/pop.ogg"></audio>
+      <audio id="sfx-card2" data-start="4.64" data-duration="0.6" data-track-index="10" data-volume="0.6" src="assets/sfx/pop.ogg"></audio>
+      <audio id="sfx-card3" data-start="5.74" data-duration="0.6" data-track-index="10" data-volume="0.6" src="assets/sfx/pop.ogg"></audio>
+      <audio id="sfx-diff" data-start="9.29" data-duration="0.6" data-track-index="10" data-volume="0.6" src="assets/sfx/pop.ogg"></audio>
+      <audio id="sfx-confirm" data-start="13.64" data-duration="0.8" data-track-index="10" data-volume="0.6" src="assets/sfx/confirm.ogg"></audio>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      function typeText(target, el, text, start, perChar) {
+        text.split("").forEach((c, i) => {
+          target.call(() => { el.textContent += c; }, [], start + i * perChar);
+        });
+      }
+
+      // Scene 1: hook — command types 0.2-1.4s, cursor blinks,
+      // "175" slams in. beat-locked: 2.9s (nearest grid point to slam, vol-10 grid).
+      typeText(tl, document.getElementById("s1-cmd"), "ls skills | wc -l", 0.2, 0.065);
+      tl.to("#s1-cursor", { opacity: 0, duration: 0.5, repeat: 5, yoyo: true, ease: "steps(1)" }, 0);
+      tl.set("#s1-cursor", { opacity: 0 }, 3.0);
+      tl.fromTo("#s1-answer", { scale: 2.2, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.25, ease: "power4.out" }, 2.85);
+
+      // Scene 2: stat cards arrive one by one.
+      // beat-grid: card1 3.55s, card2 4.64s, card3 5.74s (every-other-beat spacing off the vol-10 grid).
+      tl.fromTo("#s2-card1", { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: "power3.out" }, 3.55);
+      tl.fromTo("#s2-card2", { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: "power3.out" }, 4.64);
+      tl.fromTo("#s2-card3", { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: "power3.out" }, 5.74);
+
+      // Scene 3: diff fix — minus line first, plus line lands with weight.
+      // beat-locked: 9.29s (green line landing).
+      tl.fromTo("#s3-minus", { autoAlpha: 0, x: -20 }, { autoAlpha: 1, x: 0, duration: 0.35 }, 8.4);
+      tl.fromTo("#s3-plus", { autoAlpha: 0, scale: 0.9 }, { autoAlpha: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 9.29);
+
+      // Scene 4: git push — command types, confirm arrow lands with the chime.
+      // beat-locked: 13.64s.
+      typeText(tl, document.getElementById("s4-cmd"), "git push", 13.2, 0.07);
+      tl.to("#s4-cursor", { opacity: 0, duration: 0.5, repeat: 3, yoyo: true, ease: "steps(1)" }, 13.2);
+      tl.set("#s4-cursor", { opacity: 0 }, 17.0);
+      tl.fromTo("#s4-confirm", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 13.64);
+
+      // Scene 5: outro line types, title fades in after.
+      typeText(tl, document.getElementById("s5-line"), "my Claude Code setup got a little out of hand.", 17.3, 0.045);
+      tl.to("#s5-cursor", { opacity: 0, duration: 0.5, repeat: 3, yoyo: true, ease: "steps(1)" }, 17.3);
+      tl.set("#s5-cursor", { opacity: 0 }, 20.0);
+      tl.fromTo("#s5-title", { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6 }, 19.2);
+
+      window.__timelines["brag"] = tl;
+    </script>
+  </body>
+</html>
