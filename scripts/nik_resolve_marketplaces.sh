@@ -18,6 +18,13 @@
 # Prints TSV:  <marketplace>\t<owner/repo or UNRESOLVED>
 set -uo pipefail
 
+# Real interpreter, not whatever is on PATH. modern-python@trailofbits shims
+# `python3` to `uv run python`, which fails outside a uv project.
+PY="$(command -v /opt/homebrew/bin/python3 2>/dev/null \
+   || command -v /usr/bin/python3 2>/dev/null \
+   || command -v python3)"
+
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CACHE="$REPO_ROOT/scripts/marketplace_sources.tsv"
 
@@ -36,7 +43,7 @@ verify() {
   json="$(gh api "repos/$repo/contents/.claude-plugin/marketplace.json" \
             --jq '.content' 2>/dev/null | base64 -d 2>/dev/null)" || return 1
   [ -n "$json" ] || return 1
-  printf '%s' "$json" | python3 -c "
+  printf '%s' "$json" | "$PY" -c "
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(1)
