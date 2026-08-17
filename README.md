@@ -381,12 +381,12 @@ Generated from disk. Do not edit by hand — run `python3 scripts/nik_inventory.
 | | Count |
 |---|---|
 | Skills shipped by this repo | 230 |
-| …wired into every config dir (`.claude-nebula` + `.claude`) | 230 |
+| …wired into every config dir (`.claude` + `.claude-nebula`) | 230 |
 | …broken symlinks | 0 |
 | …present in repo but not installed | 0 |
 | …that come from the gstack submodule | 54 |
 | Skills installed outside this repo | 2 |
-| Plugins installed | 2 (2 enabled) |
+| Plugins installed | 3 (3 enabled) |
 | Skills naming a credential env var | 68 |
 | Skills naming an MCP server | 42 |
 
@@ -397,8 +397,8 @@ from upstream will never touch them.
 
 | Skill | How it is installed | Present in | Real location | What it does |
 |---|---|---|---|---|
-| `humanizer` | symlink | `.claude-nebula`, `.claude` | `~/.agents/skills/humanizer` | Remove signs of AI-generated writing from text. Use when editing or reviewing t… |
-| `parametric-3d-printing` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/parametric-3d-printing` | Use this skill when the user wants to design a 3D-printable physical object the… |
+| `humanizer` | symlink | `.claude`, `.claude-nebula` | `~/.agents/skills/humanizer` | Remove signs of AI-generated writing from text. Use when editing or reviewing t… |
+| `parametric-3d-printing` | real folder | `.claude`, `.claude-nebula` | `~/.claude/skills/parametric-3d-printing` | Use this skill when the user wants to design a 3D-printable physical object the… |
 
 ### Plugins
 
@@ -407,10 +407,11 @@ A plugin can carry its own skills, its own slash commands, and its own MCP serve
 
 | Plugin | Version | Enabled | Marketplace repo | Auto-update | Skills | Commands | Agents | MCP servers it brings |
 |---|---|---|---|---|---|---|---|---|
+| `brag@brag` | 0.2.2 | yes | `latent-spaces/brag` | no | 1 | 0 | 0 | — |
 | `claude-mem@thedotmack` | 13.14.0 | yes | `thedotmack/claude-mem` | yes | 19 | 0 | 0 | `mcp-search` |
 | `vercel@claude-plugins-official` | 0.44.0 | yes | `anthropics/claude-plugins-official` | no | 28 | 5 | 3 | `vercel` |
 
-That is **47 more skills** on top of the 230 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
+That is **48 more skills** on top of the 230 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
 
 ### MCP servers
 
