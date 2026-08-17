@@ -1,0 +1,2 @@
+We built claude-toolkit to solve one dev's Claude Code sprawl: 175 skills, 72 plugins, tracked from a single README.
+Also caught our own 1,343-file vendoring mistake and fixed it in one commit. -376,132 / +126.
