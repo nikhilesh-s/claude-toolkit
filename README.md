@@ -19,6 +19,7 @@ editing them by hand.
 | Question | Answer |
 |---|---|
 | Where does this repo live? | `~/claude-toolkit` |
+| Where does it back up to? | `nikhilesh-s/claude-toolkit` — **private**, default branch is yours |
 | What branch am I on? | `nik-claude-toolkit` — never commit to `main` |
 | Where do the skills go? | `~/.claude/skills/` **and** `~/.claude-nebula/skills/`, as symlinks back into this repo |
 | How many skills does this repo give me? | 230, all wired up, 0 broken |
@@ -186,8 +187,29 @@ committing absolute ones.
 
 ## Staying in sync with Arnav
 
-Upstream is `ArnavKakani/claude-toolkit` (private, branch `main`). The goal: get Arnav's new
-skills, keep this README.
+### How the remotes are wired
+
+| Remote | Points at | Fetch | Push |
+|---|---|---|---|
+| `origin` | `nikhilesh-s/claude-toolkit` (private, yours) | yes | yes |
+| `upstream` | `ArnavKakani/claude-toolkit` (private, Arnav's) | yes | **disabled on purpose** |
+
+`origin` is a **separate private repo, not a fork.** A fork of a private repo lives inside the
+parent's fork network, where the parent owner can see it exists. A standalone private repo
+syncs exactly the same way and gives Arnav no visibility at all.
+
+Your GitHub token has write access to Arnav's repo, so a stray `git push upstream` would have
+put this branch — a full description of your machine — into his repo. The push URL for
+`upstream` is set to a dead value to make that impossible:
+
+```bash
+git remote set-url --push upstream DISABLED_read_only_upstream
+```
+
+Do not undo that. If you ever genuinely want to send Arnav something, open a PR from a
+purpose-made branch instead.
+
+The goal of the sync: get Arnav's new skills, keep this README.
 
 ### How the README is protected
 
@@ -226,8 +248,12 @@ Then commit, and **restart Claude Code** — skills load only at session start.
 
 ### Rules for this branch
 
-- **Never commit to `main`.** `main` is Arnav's. Keep it clean so merges stay trivial.
-- **Never push this branch anywhere public.** It is a description of your machine.
+- **Never commit to `main`.** `main` tracks Arnav's. Keep it clean so merges stay trivial.
+- **Never push this branch anywhere public.** It is a description of your machine —
+  what is installed, what is running, and which services are unauthenticated.
+- **Never make `nikhilesh-s/claude-toolkit` public**, and do not re-enable the `upstream`
+  push URL.
+- After a sync, `git push origin nik-claude-toolkit` to back it up.
 - To add a skill of your own, put it in `skills/` and run `nik_install_skills.sh`. It lives on
   this branch only; upstream never sees it.
 - If upstream edits a file you also changed, the merge stops and tells you. Only `README.md`
