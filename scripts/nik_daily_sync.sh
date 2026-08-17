@@ -195,6 +195,31 @@ print(f"rewrote {n} absolute symlink(s)")
 PY
 
 ./scripts/nik_install_skills.sh >>"$LOG" 2>&1
+
+# --- plugins ----------------------------------------------------------------
+# Nik asked for full parity with Arnav, kept automatic. Git cannot carry a
+# plugin, so this runs the real installer: it resolves each marketplace to a
+# verified GitHub repo and installs into BOTH profiles.
+#
+# This downloads and enables third-party code without review. That is the
+# explicit intent here. To go back to review-first, set AUTO_INSTALL_PLUGINS=0
+# below — the run will then only report what is missing.
+AUTO_INSTALL_PLUGINS=1
+
+PLUGIN_NOTE=""
+if [ "$AUTO_INSTALL_PLUGINS" = 1 ] && [ -n "$MISSING_PLUGINS" ]; then
+  log "auto-installing plugins Arnav added:"
+  printf '%s' "$MISSING_PLUGINS" | sed 's/^/    /' >>"$LOG"
+  if ./scripts/nik_install_plugins.sh >>"$LOG" 2>&1; then
+    PLUGIN_NOTE=", installed $(printf '%s' "$MISSING_PLUGINS" | grep -c .) plugin(s)"
+    log "plugin install finished"
+  else
+    PLUGIN_NOTE=", plugin install FAILED (see log)"
+    log "plugin install failed"
+    notify "Claude toolkit" "A plugin install failed. See sync.log."
+  fi
+fi
+
 python3 scripts/nik_inventory.py >>"$LOG" 2>&1
 
 BROKEN="$(find skills -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l | tr -d ' ')"
@@ -220,13 +245,16 @@ N_ADDED="$(printf '%s\n' "$ADDED_SKILLS" | grep -c . || true)"
 N_REMOVED="$(printf '%s\n' "$REMOVED_SKILLS" | grep -c . || true)"
 SUMMARY="added $N_ADDED skill(s), removed $N_REMOVED"
 
-if [ -n "$MISSING_PLUGINS" ]; then
+if [ -n "$MISSING_PLUGINS" ] && [ "$AUTO_INSTALL_PLUGINS" = 1 ]; then
+  notify "Claude toolkit updated" \
+    "$N_ADDED skill(s) + $(printf '%s' "$MISSING_PLUGINS" | grep -c .) plugin(s) from Arnav. Restart Claude Code."
+elif [ -n "$MISSING_PLUGINS" ]; then
   log "PLUGINS NEEDING MANUAL INSTALL (git cannot deliver these):"
-  printf '%s' "$MISSING_PLUGINS" | sed 's/^/    claude plugin install /' >>"$LOG"
+  printf '%s' "$MISSING_PLUGINS" | sed 's/^/    /' >>"$LOG"
   notify "Claude toolkit: new plugin to install" \
-    "Arnav added: $(printf '%s' "$MISSING_PLUGINS" | tr '\n' ' '). Run claude plugin install."
+    "Arnav added: $(printf '%s' "$MISSING_PLUGINS" | tr '\n' ' '). Run nik_install_plugins.sh."
 elif [ "$N_ADDED" -gt 0 ]; then
   notify "Claude toolkit updated" "$N_ADDED new skill(s) from Arnav. Restart Claude Code."
 fi
 
-finish "SYNCED" "$SUMMARY$PUSH_NOTE" 0
+finish "SYNCED" "$SUMMARY$PLUGIN_NOTE$PUSH_NOTE" 0
