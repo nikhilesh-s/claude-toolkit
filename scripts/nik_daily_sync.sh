@@ -47,7 +47,7 @@ mkdir -p "$LOG_DIR"
 # Runs on its own, touches nothing, needs no lock.
 if [ "${1:-}" = "--report-plugins" ]; then
   git fetch --quiet upstream main 2>/dev/null
-  installed="$(python3 -c "
+  installed="$("$PY" -c "
 import json,os
 p=os.path.expanduser('~/.claude/plugins/installed_plugins.json')
 try: print('\n'.join(json.load(open(p)).get('plugins',{}).keys()))
@@ -86,6 +86,11 @@ finish() {
   local state="$1" detail="$2"
   printf '%s\n%s\n%s\n' "$(ts)" "$state" "$detail" >"$STATUS_FILE"
   log "RESULT: $state — $detail"
+  # Email the report. Exits 0 quietly when no Keychain credential is stored,
+  # so a missing email can never turn a good sync into a failed one.
+  if [ "$DRY_RUN" != 1 ]; then
+    "$PY" scripts/nik_mail_report.py >>"$LOG" 2>&1 || log "email step failed (sync itself unaffected)"
+  fi
   log "----"
   exit "${3:-0}"
 }
@@ -161,7 +166,7 @@ printf '%s\n' "$NEW_COMMITS" | sed 's/^/    /' >>"$LOG"
 # Plugin rows give the install id directly as <name>@<source>. Diffing that file
 # is far more reliable than scraping prose out of the README.
 installed_plugin_ids() {
-  python3 -c "
+  "$PY" -c "
 import json,os
 p=os.path.expanduser('~/.claude/plugins/installed_plugins.json')
 try: print('\n'.join(json.load(open(p)).get('plugins',{}).keys()))
