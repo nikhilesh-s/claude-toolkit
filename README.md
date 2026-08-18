@@ -24,7 +24,7 @@ editing them by hand.
 | Where do the skills go? | `~/.claude/skills/` **and** `~/.claude-nebula/skills/`, as symlinks back into this repo |
 | How many skills does this repo give me? | 230, all wired up, 0 broken |
 | How many more come from plugins? | 47 (28 Vercel + 19 claude-mem) |
-| How do I get Arnav's new skills? | Automatically, 21:00 daily. See [Daily automatic sync](#daily-automatic-sync) |
+| How do I get Arnav's new skills? | Automatically, 11:00 + 23:00. See [Daily automatic sync](#daily-automatic-sync) |
 | Do his new **plugins** arrive too? | **No.** Git cannot carry a plugin. See [Plugins do not arrive through git](#plugins-do-not-arrive-through-git) |
 | Will that overwrite this README? | No. See [Staying in sync](#staying-in-sync-with-arnav) |
 | Does any of this work in both Claude apps? | Yes for skills — they are linked into both. Plugins must be installed twice. See [Two apps, two accounts](#two-apps-two-accounts-what-carries-over) |
@@ -192,7 +192,7 @@ Checked live on 2026-08-16.
 
 | Thing | State | Port | To start it |
 |---|---|---|---|
-| Daily upstream sync (launchd) | **active**, 21:00 daily | — | see [Daily automatic sync](#daily-automatic-sync) |
+| Upstream sync (launchd) | **active**, 11:00 + 23:00 | — | see [Daily automatic sync](#daily-automatic-sync) |
 | claude-mem viewer | **up** | 37702 | starts with the plugin |
 | claude-mem worker | **down** | 37701 | `npx claude-mem start` |
 | claude-mem cloud sync | **blocked** | — | Desktop OAuth token expired; re-login via Claude Desktop |
@@ -303,13 +303,16 @@ Then commit, and **restart Claude Code** — skills load only at session start.
 
 ### Daily automatic sync
 
-A launchd job runs `scripts/nik_daily_sync.sh` every day at **21:00** (9 PM).
+A launchd job runs `scripts/nik_daily_sync.sh` **twice a day, at 11:00 and 23:00**.
+
+Every run emails a report to `niksuravarjjala@gmail.com` — see
+[Email reports](#email-reports).
 
 `~/Library/LaunchAgents/com.nik.claude-toolkit-sync.plist` — the copy in
 `scripts/` is the tracked original.
 
 **launchd, not cron.** cron on macOS silently skips a job whose time passed while the machine
-was asleep. A laptop shut at 21:00 would just never sync. launchd runs a missed
+was asleep. A laptop shut at 23:00 would just never sync. launchd runs a missed
 `StartCalendarInterval` job as soon as the machine wakes.
 
 It is deliberately timid, because unattended git that fights you is worse than none:
@@ -331,7 +334,7 @@ prunes links for skills upstream deleted, and regenerates the inventory below.
 cat ~/Library/Logs/claude-toolkit/last-run.txt     # one-line verdict from the last run
 tail -40 ~/Library/Logs/claude-toolkit/sync.log    # full history, auto-rotated at 1 MB
 
-# run it now instead of waiting for 21:00
+# run it now instead of waiting for the next run
 launchctl kickstart -p gui/$(id -u)/com.nik.claude-toolkit-sync
 ./scripts/nik_daily_sync.sh --dry-run              # report only, change nothing
 
@@ -357,6 +360,35 @@ So a daily pull hands you a perfect copy of a note about a plugin, and none of t
 The gap is not small. Arnav's index lists **73 plugins**. Without intervention you would have
 had 2, and the sync would report "up to date" every morning while you were missing the rest.
 `humanizer@humanizer` — the humanizing tool — is one of the missing ones.
+
+### Email reports
+
+Every non-dry run emails a report: sync result, repo commit, both profiles' skill
+and plugin counts, whether the profiles are identical, broken-link count, and the
+log tail for that run. Subject line carries the state, with `[ATTENTION]` appended
+when it is anything other than `SYNCED` or `UP TO DATE`.
+
+**The password is not in this repo and never will be.** It lives in the macOS
+Keychain and is read at send time. Set it up once:
+
+```bash
+security add-generic-password -a nebula.markdown@gmail.com -s claude-toolkit-smtp -w
+```
+
+That prompts for the password without echoing it. For Gmail this must be an **app
+password** from <https://myaccount.google.com/apppasswords>, not the account
+password — Gmail rejects the account password over SMTP.
+
+Send a test:
+
+```bash
+python3 scripts/nik_mail_report.py --test
+```
+
+If no credential is stored the mailer prints a hint and exits 0. A missing email
+can never turn a good sync into a failed one.
+
+To change the recipient, edit `TO` at the top of `scripts/nik_mail_report.py`.
 
 ### Plugin parity is now automatic — and what that means
 
@@ -591,7 +623,7 @@ Generated from disk. Do not edit by hand — run `python3 scripts/nik_inventory.
 | …present in repo but not installed | 0 |
 | …that come from the gstack submodule | 54 |
 | Skills installed outside this repo | 28 |
-| Plugins installed | 69 (67 enabled) |
+| Plugins installed | 69 (69 enabled) |
 | Skills naming a credential env var | 68 |
 | Skills naming an MCP server | 42 |
 
@@ -602,34 +634,34 @@ from upstream will never touch them.
 
 | Skill | How it is installed | Present in | Real location | What it does |
 |---|---|---|---|---|
+| `captions-overlay` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/captions-overlay` | Overlay doctrine for the embedded-captions workflow — the caption MODEL (drop /… |
+| `changelog-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/changelog-video` | Turn a weekly changelog .md into a finished branded changelog video (square 108… |
+| `cut-the-curve` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/cut-the-curve` | The technique catalog: five velocity-matched SEAMS (zoom-through, INVERSE zoom-… |
+| `embedded-captions` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/embedded-captions` | Add captions or subtitles to an existing single-subject talking-head video with… |
+| `faceless-explainer` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/faceless-explainer` | Turn arbitrary text — an article, notes, a topic, a brief — into a faceless exp… |
+| `figma` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/figma` | Import Figma content into a HyperFrames composition — rendered assets, brand to… |
+| `general-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/general-video` | Author or edit a custom HyperFrames composition when no specialized workflow fi… |
 | `humanizer` | symlink | `.claude-nebula`, `.claude` | `~/.agents/skills/humanizer` | Remove signs of AI-generated writing from text. Use when editing or reviewing t… |
+| `hyperframes` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes` | Mandatory entry point: read this first for any request to make, create, edit, a… |
+| `hyperframes-animation` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-animation` | All animation knowledge for HyperFrames — atomic motion rules, multi-phase scen… |
+| `hyperframes-audio` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-audio` | Use when audio already placed in a HyperFrames composition needs to be mixed: a… |
+| `hyperframes-cli` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-cli` | Use the HyperFrames CLI development loop: init, add, catalog, capture, lint, ch… |
+| `hyperframes-core` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-core` | The HyperFrames composition contract — build one renderable project. Use for co… |
+| `hyperframes-creative` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-creative` | Non-animation creative direction for HyperFrames videos. Use for design spec (f… |
+| `hyperframes-keyframes` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-keyframes` | Use when a HyperFrames composition needs seek-safe 2D/3D keyframes, GSAP timeli… |
+| `hyperframes-registry` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-registry` | Install, discover, and wire registry blocks and components into HyperFrames com… |
+| `media-use` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/media-use` | Agent Media OS, the single skill for every media need in a HyperFrames project.… |
+| `motion-doctrine` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/motion-doctrine` | GATEWAY — load FIRST before composing any HyperFrames animation or video. The h… |
+| `motion-graphics` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/motion-graphics` | A short, design-led motion graphic where motion is the message — kinetic typogr… |
+| `music-to-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/music-to-video` | Turn a music track (an audio file, a video to pull audio from, or a track gener… |
+| `oversized-cursor` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/oversized-cursor` | House-style oversized macOS cursor technique for HyperFrames launch videos. Loa… |
 | `parametric-3d-printing` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/parametric-3d-printing` | Use this skill when the user wants to design a 3D-printable physical object the… |
-| `captions-overlay` | real folder | `.claude` | `~/.claude/skills/captions-overlay` | Overlay doctrine for the embedded-captions workflow — the caption MODEL (drop /… |
-| `changelog-video` | real folder | `.claude` | `~/.claude/skills/changelog-video` | Turn a weekly changelog .md into a finished branded changelog video (square 108… |
-| `cut-the-curve` | real folder | `.claude` | `~/.claude/skills/cut-the-curve` | The technique catalog: five velocity-matched SEAMS (zoom-through, INVERSE zoom-… |
-| `embedded-captions` | real folder | `.claude` | `~/.claude/skills/embedded-captions` | Add captions or subtitles to an existing single-subject talking-head video with… |
-| `faceless-explainer` | real folder | `.claude` | `~/.claude/skills/faceless-explainer` | Turn arbitrary text — an article, notes, a topic, a brief — into a faceless exp… |
-| `figma` | real folder | `.claude` | `~/.claude/skills/figma` | Import Figma content into a HyperFrames composition — rendered assets, brand to… |
-| `general-video` | real folder | `.claude` | `~/.claude/skills/general-video` | Author or edit a custom HyperFrames composition when no specialized workflow fi… |
-| `hyperframes` | real folder | `.claude` | `~/.claude/skills/hyperframes` | Mandatory entry point: read this first for any request to make, create, edit, a… |
-| `hyperframes-animation` | real folder | `.claude` | `~/.claude/skills/hyperframes-animation` | All animation knowledge for HyperFrames — atomic motion rules, multi-phase scen… |
-| `hyperframes-audio` | real folder | `.claude` | `~/.claude/skills/hyperframes-audio` | Use when audio already placed in a HyperFrames composition needs to be mixed: a… |
-| `hyperframes-cli` | real folder | `.claude` | `~/.claude/skills/hyperframes-cli` | Use the HyperFrames CLI development loop: init, add, catalog, capture, lint, ch… |
-| `hyperframes-core` | real folder | `.claude` | `~/.claude/skills/hyperframes-core` | The HyperFrames composition contract — build one renderable project. Use for co… |
-| `hyperframes-creative` | real folder | `.claude` | `~/.claude/skills/hyperframes-creative` | Non-animation creative direction for HyperFrames videos. Use for design spec (f… |
-| `hyperframes-keyframes` | real folder | `.claude` | `~/.claude/skills/hyperframes-keyframes` | Use when a HyperFrames composition needs seek-safe 2D/3D keyframes, GSAP timeli… |
-| `hyperframes-registry` | real folder | `.claude` | `~/.claude/skills/hyperframes-registry` | Install, discover, and wire registry blocks and components into HyperFrames com… |
-| `media-use` | real folder | `.claude` | `~/.claude/skills/media-use` | Agent Media OS, the single skill for every media need in a HyperFrames project.… |
-| `motion-doctrine` | real folder | `.claude` | `~/.claude/skills/motion-doctrine` | GATEWAY — load FIRST before composing any HyperFrames animation or video. The h… |
-| `motion-graphics` | real folder | `.claude` | `~/.claude/skills/motion-graphics` | A short, design-led motion graphic where motion is the message — kinetic typogr… |
-| `music-to-video` | real folder | `.claude` | `~/.claude/skills/music-to-video` | Turn a music track (an audio file, a video to pull audio from, or a track gener… |
-| `oversized-cursor` | real folder | `.claude` | `~/.claude/skills/oversized-cursor` | House-style oversized macOS cursor technique for HyperFrames launch videos. Loa… |
-| `pr-to-video` | real folder | `.claude` | `~/.claude/skills/pr-to-video` | Turn a GitHub pull request (a PR URL, owner/repo#N, or 'this PR' in a checked-o… |
-| `product-launch-video` | real folder | `.claude` | `~/.claude/skills/product-launch-video` | Turn a product or marketing URL, pasted script, or brief into a product launch… |
-| `remotion-to-hyperframes` | real folder | `.claude` | `~/.claude/skills/remotion-to-hyperframes` | Port an existing Remotion (React) composition''s source to HyperFrames HTML. Us… |
-| `seam-craft` | real folder | `.claude` | `~/.claude/skills/seam-craft` | Render-correctness doctrine for scene-to-scene seams in HyperFrames launch vide… |
-| `slideshow` | real folder | `.claude` | `~/.claude/skills/slideshow` | Author a HyperFrames slideshow — a presentation, pitch deck, or interactive dec… |
-| `talking-head-recut` | real folder | `.claude` | `~/.claude/skills/talking-head-recut` | Package an existing talking-head / interview / podcast video with timed, design… |
+| `pr-to-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/pr-to-video` | Turn a GitHub pull request (a PR URL, owner/repo#N, or 'this PR' in a checked-o… |
+| `product-launch-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/product-launch-video` | Turn a product or marketing URL, pasted script, or brief into a product launch… |
+| `remotion-to-hyperframes` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/remotion-to-hyperframes` | Port an existing Remotion (React) composition''s source to HyperFrames HTML. Us… |
+| `seam-craft` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/seam-craft` | Render-correctness doctrine for scene-to-scene seams in HyperFrames launch vide… |
+| `slideshow` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/slideshow` | Author a HyperFrames slideshow — a presentation, pitch deck, or interactive dec… |
+| `talking-head-recut` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/talking-head-recut` | Package an existing talking-head / interview / podcast video with timed, design… |
 
 ### Plugins
 
@@ -648,7 +680,7 @@ A plugin can carry its own skills, its own slash commands, and its own MCP serve
 | `caveman@caveman` | 766dce6b1394 | yes | `JuliusBrussee/caveman` | no | 20 | 5 | 5 | — |
 | `claude-api@anthropic-agent-skills` | f6656c1256d5 | yes | `anthropics/skills` | no | 17 | 0 | 0 | — |
 | `claude-code-setup@claude-plugins-official` | 1.0.0 | yes | `anthropics/claude-plugins-official` | no | 1 | 0 | 0 | — |
-| `claude-hud@claude-hud` | 0.7.1 | no | `jarrodwatts/claude-hud` | no | 0 | 2 | 0 | — |
+| `claude-hud@claude-hud` | 0.7.1 | yes | `jarrodwatts/claude-hud` | no | 0 | 2 | 0 | — |
 | `claude-in-chrome-troubleshooting@trailofbits` | 1.1.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 | `claude-mem@thedotmack` | 13.14.0 | yes | `thedotmack/claude-mem` | yes | 19 | 0 | 0 | `mcp-search` |
 | `code-simplifier@claude-plugins-official` | 1.0.0 | yes | `anthropics/claude-plugins-official` | no | 0 | 0 | 1 | — |
@@ -677,7 +709,7 @@ A plugin can carry its own skills, its own slash commands, and its own MCP serve
 | `last30days@last30days-skill` | 3.21.0 | yes | `mvanhorn/last30days-skill` | no | 1 | 0 | 0 | — |
 | `let-fate-decide@trailofbits` | 1.2.2 | yes | `trailofbits/skills` | no | 1 | 0 | 1 | — |
 | `marketing-skills@marketingskills` | 2.10.0 | yes | `coreyhaines31/marketingskills` | no | 49 | 0 | 0 | — |
-| `mattpocock-skills@mattpocock` | 1.2.3 | no | `mattpocock/skills` | no | 0 | 0 | 0 | — |
+| `mattpocock-skills@mattpocock` | 1.2.3 | yes | `mattpocock/skills` | no | 0 | 0 | 0 | — |
 | `modern-python@trailofbits` | 1.5.3 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 | `mutation-testing@trailofbits` | 1.0.1 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 | `open-sourcing@trailofbits` | 0.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
