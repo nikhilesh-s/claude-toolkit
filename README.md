@@ -202,6 +202,11 @@ other executable file lives inside its own skill folder, for example
 
 ## Serena
 
+> **Deactivated 2026-08-19.** Serena processes were killed and its host plugin
+> `zeroize-audit@trailofbits` set to `false` in the `enabledPlugins` block of both
+> `~/.claude/settings.json` and `~/.claude-nebula/settings.json`. This also disables the
+> zeroize-audit skill itself. To reactivate, flip the flag back to `true` in both files.
+
 Serena ([oraios/serena](https://github.com/oraios/serena)) is a semantic code-navigation MCP
 server. It gives LSP-backed symbol tools — `find_symbol`, `find_referencing_symbols`,
 `replace_symbol_body`, and others — that stand in for grep, Read, and Edit on coding tasks. It
@@ -656,7 +661,7 @@ what needs an install step or config before it works at all.
 
 | Thing | Starts on its own? | What it needs |
 |---|---|---|
-| Serena MCP server | Yes. It starts when a skill that needs it runs. Right now, only `zeroize-audit` needs it. | `uv`/`uvx` on PATH (already present). The first run clones the Serena repo, so it needs network access once. |
+| Serena MCP server | No — deactivated 2026-08-19 (plugin flag off in both config homes). | `uv`/`uvx` on PATH (already present). The first run clones the Serena repo, so it needs network access once. |
 | gstack `Stop` hook | Yes. It runs at the end of every Claude Code session. | `bun` on PATH (already present). Already registered in `~/.claude/settings.json`. |
 | claude-mem capture hooks | Yes. They capture tool usage during any session, as soon as the plugin is enabled. | Nothing extra. The **worker** that summarizes and injects memory does not start on its own — see the next row. |
 | claude-mem worker | No. It does not start after a reboot. | Run `npx claude-mem start` by hand. |
