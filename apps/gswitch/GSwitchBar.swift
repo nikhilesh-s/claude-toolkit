@@ -24,6 +24,16 @@ func gswitch(_ args: [String]) -> String {
     return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 }
 
+func logLine(_ s: String) {
+    let path = "\(NSHomeDirectory())/.gswitch/menubar.log"
+    let line = "\(Date()) \(s)\n"
+    if let h = FileHandle(forWritingAtPath: path) {
+        h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close()
+    } else {
+        try? line.write(toFile: path, atomically: true, encoding: .utf8)
+    }
+}
+
 func notify(_ text: String) {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
@@ -42,24 +52,31 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ n: Notification) {
+        logLine("didFinishLaunching")
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+        logLine("statusItem created, button=\(statusItem.button != nil)")
         refreshIcon()
         Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in self.refreshIcon() }
     }
 
     func isUp() -> Bool { gswitch(["status"]).contains("server: UP") }
 
+    // Always set a text title: if the SF Symbol fails to load the button would
+    // otherwise have zero width and be invisible while the app looks healthy.
     func refreshIcon() {
         let up = isUp()
-        if let b = statusItem.button {
-            let name = up ? "externaldrive.badge.checkmark" : "externaldrive.badge.xmark"
-            b.image = NSImage(systemSymbolName: name, accessibilityDescription: "GSwitch")
-            b.image?.isTemplate = true
-            b.toolTip = up ? "gswitch connector: running" : "gswitch connector: stopped"
-        }
+        guard let b = statusItem.button else { logLine("refreshIcon: no button"); return }
+        let name = up ? "externaldrive.badge.checkmark" : "externaldrive.badge.xmark"
+        let img = NSImage(systemSymbolName: name, accessibilityDescription: "GSwitch")
+        img?.isTemplate = true
+        b.image = img
+        b.imagePosition = .imageLeading
+        b.title = up ? " GS" : " GS✗"
+        b.toolTip = up ? "gswitch connector: running" : "gswitch connector: stopped"
+        logLine("refreshIcon up=\(up) image=\(img != nil)")
     }
 
     // Rebuild the menu each time it opens so the state line is never stale.
