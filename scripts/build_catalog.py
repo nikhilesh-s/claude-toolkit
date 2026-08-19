@@ -134,6 +134,9 @@ TEMPLATE = r"""<!doctype html>
     border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: inherit; }
   .bar input { flex: 1; min-width: 220px; }
   .bar input:focus, .bar select:focus { outline: 1px solid var(--accent); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .chips .badge { cursor: pointer; border: 1px solid transparent; }
+  .chips .badge.on { border-color: var(--accent); color: var(--accent); }
   #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex;
              justify-content: center; padding: 4vh 16px; z-index: 10; }
   #panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
@@ -170,6 +173,7 @@ TEMPLATE = r"""<!doctype html>
     <select id="kind"><option value="">all kinds</option><option>skill</option><option>plugin</option></select>
     <select id="cat"><option value="">all categories</option></select>
   </div>
+  <div class="chips" id="chips"></div>
   <div class="grid" id="grid"></div>
   <p id="empty" style="display:none;color:var(--muted);margin-top:24px">Nothing matches. Clear a filter.</p>
 </main>
@@ -198,7 +202,19 @@ function draw(list){
     `${s} skills · ${list.length - s} plugins — click a card for full details`;
 }
 const q = document.getElementById('q'), kindSel = document.getElementById('kind'), catSel = document.getElementById('cat');
-[...new Set(DATA.map(e => e.category))].sort().forEach(c => catSel.add(new Option(c)));
+const cats = [...new Set(DATA.map(e => e.category))].sort();
+cats.forEach(c => catSel.add(new Option(c)));
+const chips = document.getElementById('chips');
+chips.innerHTML = cats.map(c => {
+  const n = DATA.filter(e => e.category === c).length;
+  return `<span class="badge" data-cat="${esc(c)}">${esc(c)} · ${n}</span>`;
+}).join('');
+chips.addEventListener('click', ev => {
+  const b = ev.target.closest('.badge');
+  if (!b) return;
+  catSel.value = (catSel.value === b.dataset.cat) ? '' : b.dataset.cat;
+  apply();
+});
 function apply(){
   const term = q.value.trim().toLowerCase();
   const list = DATA.map((e,i)=>[e,i]).filter(([e]) =>
@@ -207,6 +223,7 @@ function apply(){
     (!term || (e.name + ' ' + e.desc + ' ' + e.source).toLowerCase().includes(term)));
   draw(list);
   document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+  [...chips.children].forEach(b => b.classList.toggle('on', b.dataset.cat === catSel.value));
 }
 q.addEventListener('input', apply);
 kindSel.addEventListener('change', apply);
