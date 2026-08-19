@@ -251,6 +251,16 @@ privacy page, analytics). The rules that make it useful: every verdict needs fil
 evidence, N/A and UNKNOWN are honest outcomes, FAILs come first ordered by risk, and it
 never auto-fixes without asking. Run it with `/final-check` from any project directory.
 
+## ai-vibe-coding-check
+
+The design de-slop companion to final-check, from the aj.on.ai reel ("30 reasons your
+site looks vibecoded"). It greps code and reads rendered pages for the 30 tells — purple
+and black palette, harsh gradients, liquid glass, bento grids, exactly-3 pricing tiers,
+sparkle icons, em-dash copy, "it's not X, it's Y" lines, fake testimonials, missing
+TOS/privacy pages — and scores the result (6+ tells = vibe-coded range). A deliberate
+design choice can keep any single tell; the skill flags the combination. Run it with
+`/ai-vibe-coding-check` before shipping any AI-assisted frontend.
+
 ## All skills (177)
 
 Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s frontmatter. Regenerate after adding or removing a skill:
