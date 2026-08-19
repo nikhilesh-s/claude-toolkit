@@ -21,7 +21,7 @@ This file lists everything related to Claude Code on this machine, in one place.
 | [claude-code-setup](#claude-code-setup) | Plugin | ✅ active |
 | [OmniRoute](#omniroute) | Standalone gateway | ⚠️ running, MCP not wired |
 | [Headroom](#headroom) | macOS app | ⛔ not installed |
-| [Serena](#serena) | MCP server (code intel) | ✅ active, auto-starts |
+| [Serena](#serena) | MCP server (code intel) | ⛔ deactivated 2026-08-19 |
 | [status.sh](#statussh) | Script | ✅ working |
 | [Instagram-sourced tools](#instagram-sourced-2026-08-16) | CLI tools + apps | ✅ mostly active |
 | [What runs on its own](#what-runs-on-its-own-and-what-needs-setup) | Reference table | — |
