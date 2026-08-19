@@ -44,7 +44,7 @@ fi
 
 echo
 echo "${bold}SERENA${off}"
-flag=$(jq -r '.enabledPlugins["zeroize-audit@trailofbits"] // "unset"' "$HOME/.claude/settings.json" 2>/dev/null)
+flag=$(jq -r '.enabledPlugins["zeroize-audit@trailofbits"] | if . == null then "unset" else tostring end' "$HOME/.claude/settings.json" 2>/dev/null)
 if [ "$flag" = "false" ]; then
   echo "  $warn deactivated (zeroize-audit plugin flag off) — flip to true in settings.json to restore"
 elif pgrep -f "serena start-mcp-server" >/dev/null 2>&1; then
