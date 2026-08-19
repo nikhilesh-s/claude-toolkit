@@ -713,6 +713,20 @@ for s in ~/claude-toolkit/skills/*/; do ln -sfn "$s" ~/.claude-nebula/skills/"$(
 A running Claude Code process holds `.claude.json` in memory and rewrites it on exit. Edit the
 file for a config home only while no session is using that home, or the edit gets overwritten.
 
+## skills-catalog.html
+
+A single self-contained HTML file at the repo root — open it in any browser, no server,
+no build step, no network. It lists all 177 skills and 73 plugins with live search
+(press `/`), kind and category filters, clickable category chips, and a detail view that
+renders each skill's full SKILL.md (abilities, usage, applications) client-side. Data
+comes from the same ground truth as everything else: `skills/*/SKILL.md` frontmatter,
+`categorize_skills.py` categories/sources, and the which-skill index for plugins.
+
+Regenerate after any skill or plugin change:
+```bash
+uv run python scripts/build_catalog.py
+```
+
 ## Maintenance
 
 ```bash
