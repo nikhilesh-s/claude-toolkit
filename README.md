@@ -738,6 +738,10 @@ claude plugin update claude-mem@thedotmack
 claude plugin update claude-code-setup@claude-plugins-official
 npm update -g omniroute
 
+# regenerate the catalog + which-skill index after skill changes
+uv run python scripts/build_catalog.py
+uv run python scripts/build_skill_index.py > scripts/skill_index.tsv
+
 # health check — covers skills, plugins, services, and MCP in one shot
 ./status.sh
 
