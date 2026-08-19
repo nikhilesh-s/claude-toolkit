@@ -18,11 +18,17 @@ Developer Mode custom connector.
 The important detail: **each ChatGPT connector entry binds to whichever Google
 account completed its OAuth flow.** Add the connector twice, sign in as a
 different Google account each time, and ChatGPT talks to both accounts at once —
-no switching, no active-account toggle. The Dock tile is therefore a control
+no switching, no active-account toggle. The menu bar app is therefore a control
 panel (start/stop/status/URL), not a switcher.
 
-`GSwitch.app` in the Dock shows connector state and offers: start, stop, restart,
-copy connector URL, run the setup check, open the log.
+**GSwitchBar.app** is a menu bar app, written in Swift (`GSwitchBar.swift`). It
+sits in the macOS menu bar at the top right — no Dock icon (`LSUIElement`) — and
+shows a drive icon with a checkmark when the connector is running and a cross
+when it is not. Clicking it opens a menu with: start / stop / restart, copy the
+ChatGPT connector URL, run the setup check, and open the log. It refreshes its
+icon every 60 seconds, and every action shells out to the `gswitch` script so
+there is a single source of truth. A LaunchAgent
+(`com.nik.gswitchbar`) starts it at login.
 
 Tools exposed: **45** (the `extended` tier), covering Gmail
 (search/read/send/draft/labels/filters), Drive
@@ -44,8 +50,10 @@ tools, adds images, headers/footers, tables, and raw batch updates).
 cd ~/claude-toolkit/apps/gswitch && ./setup.sh
 ```
 
-Builds `GSwitch.app` (drag it to your Dock), installs the `gswitch` CLI, and
-prints a checklist of what's still missing. Re-run `gswitch doctor` any time.
+Installs the `gswitch` CLI, compiles and launches the menu bar app, registers it
+to start at login, and prints a checklist of what's still missing. Re-run
+`gswitch doctor` any time. To rebuild only the menu bar app after editing
+`GSwitchBar.swift`, run `./build_menubar.sh`.
 
 ### 2. Tailscale
 
@@ -105,13 +113,15 @@ gswitch install    # writes the LaunchAgent and starts the server
 gswitch url        # prints and copies the connector URL
 ```
 
-In ChatGPT (web): **Settings → Apps & Connectors → Advanced → Developer mode**,
-then **Create connector**:
+In ChatGPT (web): **Settings → Security and login → Developer mode** (on), then
+**Settings → Plugins → +**:
 
 - Name: `Google (college)`
-- MCP server URL: the copied URL
+- Connection: **Server URL**, set to the copied URL
 - Authentication: **OAuth**
-- Complete the Google sign-in **as the college account**
+- Tick the "I understand" risk box, click **Create**
+- Complete the Google sign-in **as the college account**, clicking through
+  *Advanced → Go to … (unsafe)* on the unverified-app screen
 
 Repeat with name `Google (personal)` if you ever want that account through
 gswitch too — same URL, sign in as the personal account. The two entries stay
@@ -122,8 +132,8 @@ confirmation once per conversation.
 
 ## Daily use
 
-Click **GSwitch** in the Dock for state and controls. Equivalents on the command
-line: `gswitch status`, `gswitch start|stop|restart`, `gswitch url`,
+Click the **GSwitch** icon in the menu bar (top right of the screen) for state
+and controls. Equivalents on the command line: `gswitch status`, `gswitch start|stop|restart`, `gswitch url`,
 `gswitch logs`, `gswitch doctor`.
 
 The server runs under launchd and restarts itself, but the Mac must be awake for
@@ -136,8 +146,10 @@ host that doesn't sleep; nothing else about the setup changes.
 - Runs on port **8765**; port 8000 is occupied by another local service on this
   Mac. `server_up()` matches the `workspace-mcp` service name, not just a 200,
   so a foreign app on the port can't be mistaken for this one.
-- OAuth tokens live in `~/.gswitch/creds/`, the client secret in
-  `~/.gswitch/config` (mode 600). Nothing leaves the machine.
+- The client secret lives in `~/.gswitch/config` (mode 600). In OAuth 2.1 mode
+  each ChatGPT connection carries its own bearer token rather than writing a
+  token file, so `~/.gswitch/creds/` normally stays empty. Nothing leaves the
+  machine.
 - **College account risk:** universities frequently block unverified third-party
   OAuth apps. If step 4's sign-in returns "Access blocked: your admin has
   restricted access" or `admin_policy_enforced`, your school blocks this and no
