@@ -27,6 +27,7 @@ This file lists everything related to Claude Code on this machine, in one place.
 | [What runs on its own](#what-runs-on-its-own-and-what-needs-setup) | Reference table | — |
 | [`~/.claude-nebula`](#second-config-home-claude-nebula) | Second config home | ✅ shares this repo's skills + plugins |
 | `final-check` + `ai-vibe-coding-check` | Skills (launch audit + de-slop) | ✅ active, sourced from Instagram reels 2026-08-19 |
+| [plans/](plans/) | Plan docs: second-brain, resolve-fx | 📝 planned, not built |
 
 **Skills** live here. `~/.claude/skills/` holds only symlinks that point back into `skills/`.
 Edit a file here, and the change takes effect right away.
