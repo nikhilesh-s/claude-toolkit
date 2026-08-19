@@ -636,6 +636,47 @@ what needs an install step or config before it works at all.
 | chatterbox-tts | No. It is not a standalone tool. | Add it to a real project with `uv add chatterbox-tts`. It only works as a Python library. |
 | Headroom | No. It is not installed. | Needs a paid subscription and a manual `.dmg` install. The `brew` command in its own README does not work. |
 
+## Second config home: `~/.claude-nebula`
+
+There are two Claude Code config homes on this machine:
+
+| Path | Used when |
+|---|---|
+| `~/.claude` + `~/.claude.json` | Default. Any plain `claude` run. |
+| `~/.claude-nebula` + `~/.claude-nebula/.claude.json` | When `CLAUDE_CONFIG_DIR=~/.claude-nebula` is set. Used by the Nebula desktop app. |
+
+Both homes point at **this same repo**. Every skill in `~/.claude-nebula/skills/` is a symlink
+into `~/claude-toolkit/skills/`, exactly like `~/.claude/skills/`. So a skill you add to this
+repo appears in both, with no extra step. Plugins are also shared: `~/.claude-nebula`'s
+`installed_plugins.json` records install paths under `~/.claude/plugins/cache/`, so there is
+one plugin cache, not two.
+
+What is **not** shared automatically:
+
+- **MCP servers.** Each config home keeps its own `mcpServers` block in its own `.claude.json`.
+  Plugin-supplied MCP servers (Serena, and the ones inside `claude-mem`, `second-opinion`,
+  `zeroize-audit`, `expo`) travel with the plugin and work in both homes. Hand-added user-scope
+  servers do not. `watch-skill` was the only one in this category; it is now in both.
+- **Sessions, history, memory, and telemetry.** Each home has its own. Memory written under
+  `~/.claude-nebula/projects/.../memory/` is not visible to a plain `claude` run, and the
+  reverse is also true.
+
+To add a user-scope MCP server to both homes:
+
+```bash
+claude mcp add <name> -- <command> <args...>
+CLAUDE_CONFIG_DIR=~/.claude-nebula claude mcp add <name> -- <command> <args...>
+```
+
+To relink all skills into the Nebula home after a fresh clone:
+
+```bash
+for s in ~/claude-toolkit/skills/*/; do ln -sfn "$s" ~/.claude-nebula/skills/"$(basename "$s")"; done
+```
+
+A running Claude Code process holds `.claude.json` in memory and rewrites it on exit. Edit the
+file for a config home only while no session is using that home, or the edit gets overwritten.
+
 ## Maintenance
 
 ```bash
