@@ -1,100 +1,151 @@
 # gswitch
 
-Use multiple Google accounts (personal + college) from one ChatGPT Plus account.
-A self-hosted MCP server on this Mac holds OAuth tokens for each Google account;
-ChatGPT connects to it once as a Developer-Mode connector. A Dock tile
-(`GSwitch.app`) picks which account is "active" — every tool call reads the
-active account at call time, so switching is instant and needs no reconnect.
-Works with ChatGPT in any browser, including Dia.
+Gives ChatGPT read **and write** access to a second Google account (your college
+`.edu`) alongside your personal one, in the same conversation. Works with ChatGPT
+in any browser, including Dia.
 
-Tools exposed to ChatGPT (all act on the active account):
-`active_google_account`, `drive_search`, `drive_read_file`, `drive_create_doc`,
-`drive_update_doc`, `gmail_search`, `gmail_read`, `gmail_send`, `gmail_draft`,
-`calendar_list_events`, `calendar_create_event`.
+## How it works, and why there's no "switching"
 
-## One-time setup
+ChatGPT allows one native Google connection per account, so your personal Gmail /
+Drive / Calendar is already covered by ChatGPT's built-in Google app — including
+sending mail and creating files, which it gained in June 2026. That side needs no
+work.
 
-### 1. Google Cloud (~10 min, once — both accounts share it)
+For the second account, gswitch runs [taylorwilsdon/workspace-mcp][upstream]
+locally and publishes it over Tailscale Funnel, so ChatGPT can add it as a
+Developer Mode custom connector.
 
-Do this signed in as **niksuravarjjala@gmail.com** at https://console.cloud.google.com :
+The important detail: **each ChatGPT connector entry binds to whichever Google
+account completed its OAuth flow.** Add the connector twice, sign in as a
+different Google account each time, and ChatGPT talks to both accounts at once —
+no switching, no active-account toggle. The Dock tile is therefore a control
+panel (start/stop/status/URL), not a switcher.
 
-1. Create project (name: `gswitch`).
-2. **APIs & Services → Library**: enable **Gmail API**, **Google Drive API**,
-   **Google Calendar API**.
-3. **APIs & Services → OAuth consent screen**: External → app name `gswitch`,
-   your email for both contact fields → scopes: skip (requested at runtime) →
-   **Test users: add niksuravarjjala@gmail.com AND your college email** → save.
-   Stay in "Testing" mode — no verification needed.
-4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
-   type **Desktop app** → download the JSON → save it as
-   `~/.gswitch/client_secret.json`.
+`GSwitch.app` in the Dock shows connector state and offers: start, stop, restart,
+copy connector URL, run the setup check, open the log.
 
-### 2. ngrok (free static domain)
+Tools exposed: 19, covering Gmail (search/read/send/draft/label), Drive
+(search/read/create/update/folders), Calendar (list/create/update/delete events),
+and Docs (create/edit/find-replace). Adjust the `SERVICES` line in
+[`gswitch`](gswitch) to add Sheets, Slides, Tasks, Contacts, or Chat.
 
-1. Sign up free at https://dashboard.ngrok.com , install: `brew install ngrok`.
-2. Run the `ngrok config add-authtoken ...` command the dashboard shows you.
-3. Dashboard → **Domains** → claim your free static domain
-   (looks like `something.ngrok-free.app`).
-4. `echo "something.ngrok-free.app" > ~/.gswitch/ngrok_domain`
+## Setup
 
-### 3. Install
+### 1. Local install
 
 ```bash
-cd ~/claude-toolkit/apps/gswitch && ./install.sh
+cd ~/claude-toolkit/apps/gswitch && ./setup.sh
 ```
 
-Builds `GSwitch.app` (drag to Dock), installs the `gswitch` CLI, and — once
-`~/.gswitch/ngrok_domain` exists — loads a LaunchAgent that keeps server+ngrok
-running across reboots.
+Builds `GSwitch.app` (drag it to your Dock), installs the `gswitch` CLI, and
+prints a checklist of what's still missing. Re-run `gswitch doctor` any time.
 
-### 4. Add accounts
+### 2. Tailscale
 
 ```bash
-gswitch add
+brew install --cask tailscale
 ```
 
-Browser opens → pick the Google account → approve (it will warn "Google hasn't
-verified this app" — Continue; it's your own app). Repeat later for the college
-account. **Probe the college account early**: if the university blocks
-third-party OAuth, `add` fails at consent and no route exists around it.
-
-### 5. Connect ChatGPT
+Open Tailscale, sign in (any method), and let it connect. Then:
 
 ```bash
-gswitch url
+gswitch funnel
 ```
 
-In ChatGPT: **Settings → Apps & Connectors → Advanced → Developer mode** on,
-then **Create connector**: name `gswitch`, MCP server URL = output of
-`gswitch url`, Authentication = **No authentication**, trust checkbox → Create.
-In a chat, enable the gswitch connector under Tools (Developer mode).
+This publishes the local port on a permanent `https://<machine>.<tailnet>.ts.net`
+address. Free, no domain purchase, and the URL survives reboots. If Tailscale
+asks you to enable HTTPS or Funnel for your tailnet, approve it in the admin
+console link it prints.
+
+### 3. Google Cloud OAuth client
+
+Signed in as **niksuravarjjala@gmail.com** at https://console.cloud.google.com,
+in the `gswitch` project:
+
+1. **APIs & Services → Library**: enable **Gmail API**, **Google Drive API**,
+   **Google Calendar API**, **Google Docs API**.
+2. **APIs & Services → OAuth consent screen** (a.k.a. Google Auth Platform):
+   App name `gswitch`, your email for support and contact, audience **External**.
+3. **Audience → Test users**: add both your personal and college addresses.
+4. **IMPORTANT — Audience → Publishing status → Publish app.** Confirm the
+   unverified-app warning. Leaving the app in *Testing* expires refresh tokens
+   after **7 days**, which means re-authorizing every week forever. Published +
+   unverified has no expiry and is correct for a two-person setup; you'll just
+   click through an "unverified app" screen once per account.
+5. **Clients → Create client → Web application**. Under **Authorized redirect
+   URIs** add exactly what `gswitch url` prints with `/oauth2callback` instead of
+   `/mcp`, for example
+   `https://your-machine.your-tailnet.ts.net/oauth2callback`. Create, then copy
+   the Client ID and Client secret.
+
+```bash
+gswitch config     # paste Client ID + secret; stored at ~/.gswitch/config, mode 600
+gswitch install    # writes the LaunchAgent and starts the server
+```
+
+### 4. Add the connector in ChatGPT — once per Google account
+
+```bash
+gswitch url        # prints and copies the connector URL
+```
+
+In ChatGPT (web): **Settings → Apps & Connectors → Advanced → Developer mode**,
+then **Create connector**:
+
+- Name: `Google (college)`
+- MCP server URL: the copied URL
+- Authentication: **OAuth**
+- Complete the Google sign-in **as the college account**
+
+Repeat with name `Google (personal)` if you ever want that account through
+gswitch too — same URL, sign in as the personal account. The two entries stay
+independent.
+
+In a chat, enable the connector(s) under Tools. Write actions ask for
+confirmation once per conversation.
 
 ## Daily use
 
-Click **GSwitch** in the Dock → pick account → done. ChatGPT's next tool call
-uses that account. Ask ChatGPT "which google account is active?" to confirm.
+Click **GSwitch** in the Dock for state and controls. Equivalents on the command
+line: `gswitch status`, `gswitch start|stop|restart`, `gswitch url`,
+`gswitch logs`, `gswitch doctor`.
 
-CLI equivalents: `gswitch list`, `gswitch use <email>`.
+The server runs under launchd and restarts itself, but the Mac must be awake for
+ChatGPT to reach it — fine when you're using ChatGPT on this Mac, a problem if
+you want it from your phone. If that becomes a real need, move the server to a
+host that doesn't sleep; nothing else about the setup changes.
 
-## Security notes
+## Notes and known limits
 
-- The connector uses **no auth + an unguessable secret URL path**
-  (`/mcp-<32 hex>`, stored in `~/.gswitch/secret`, wrong path → 404).
-  <!-- ponytail: secret-path auth; upgrade path = MCP OAuth on the server -->
-  Don't paste the URL anywhere but ChatGPT's connector settings.
-- OAuth tokens never leave this Mac (`~/.gswitch/accounts/`, mode 600).
-- Mac asleep / ngrok down ⇒ connector offline in ChatGPT until it's back.
-- ChatGPT asks for confirmation before every write tool (send mail, edit doc).
+- Runs on port **8765**; port 8000 is occupied by another local service on this
+  Mac. `server_up()` matches the `workspace-mcp` service name, not just a 200,
+  so a foreign app on the port can't be mistaken for this one.
+- OAuth tokens live in `~/.gswitch/creds/`, the client secret in
+  `~/.gswitch/config` (mode 600). Nothing leaves the machine.
+- **College account risk:** universities frequently block unverified third-party
+  OAuth apps. If step 4's sign-in returns "Access blocked: your admin has
+  restricted access" or `admin_policy_enforced`, your school blocks this and no
+  self-hosted server can get around it — the block is enforced on Google's side.
+  The fallback is a second ChatGPT account signed in with the college Google
+  login.
+- Don't paste the connector URL anywhere but ChatGPT.
 
 ## Troubleshooting
 
-- Log: `~/.gswitch/gswitch.log`. Restart:
-  `launchctl kickstart -k gui/$(id -u)/com.nik.gswitch`
-- "no active Google account" from ChatGPT → run `gswitch add`.
-- New secret (leaked URL): delete `~/.gswitch/secret`, restart, re-run
-  `gswitch url`, update the connector URL in ChatGPT.
+```bash
+gswitch doctor     # what's missing
+gswitch logs 100   # recent server output
+```
+
+Server won't start: check `gswitch logs` for a Google OAuth error, usually a
+redirect-URI mismatch — the URI in Google Cloud must match `gswitch url` exactly,
+with `/oauth2callback` in place of `/mcp`.
+
+Connector worked, then stopped after a week: the OAuth app is still in *Testing*.
+Publish it (step 3.4).
 
 ## Other providers
 
-See [EXTENSIONS.md](EXTENSIONS.md) for adding non-Google services
-(Notion, GitHub, Microsoft 365, …) to the same switcher.
+See [EXTENSIONS.md](EXTENSIONS.md) for adding non-Google services.
+
+[upstream]: https://github.com/taylorwilsdon/google_workspace_mcp
