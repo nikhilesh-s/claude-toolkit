@@ -60,9 +60,13 @@ gswitch funnel
 ```
 
 This publishes the local port on a permanent `https://<machine>.<tailnet>.ts.net`
-address. Free, no domain purchase, and the URL survives reboots. If Tailscale
-asks you to enable HTTPS or Funnel for your tailnet, approve it in the admin
-console link it prints.
+address. Free, no domain purchase, and the URL survives reboots.
+
+**Enable HTTPS certificates first**, at
+https://login.tailscale.com/admin/dns under *HTTPS Certificates*. Without it
+`tailscale funnel` hangs silently instead of erroring: it retries in the
+background and only completes once HTTPS is on. If the command appears to do
+nothing, that is why. Confirm with `tailscale funnel status`.
 
 ### 3. Google Cloud OAuth client
 
