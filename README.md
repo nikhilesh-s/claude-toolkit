@@ -637,28 +637,28 @@ from upstream will never touch them.
 | `captions-overlay` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/captions-overlay` | Overlay doctrine for the embedded-captions workflow — the caption MODEL (drop /… |
 | `changelog-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/changelog-video` | Turn a weekly changelog .md into a finished branded changelog video (square 108… |
 | `cut-the-curve` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/cut-the-curve` | The technique catalog: five velocity-matched SEAMS (zoom-through, INVERSE zoom-… |
-| `embedded-captions` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/embedded-captions` | Add captions or subtitles to an existing single-subject talking-head video with… |
-| `faceless-explainer` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/faceless-explainer` | Turn arbitrary text — an article, notes, a topic, a brief — into a faceless exp… |
+| `embedded-captions` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/embedded-captions` | Add captions or subtitles to an existing single-subject talking-head video with… |
+| `faceless-explainer` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/faceless-explainer` | Turn arbitrary text — an article, notes, a topic, a brief — into a faceless exp… |
 | `figma` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/figma` | Import Figma content into a HyperFrames composition — rendered assets, brand to… |
-| `general-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/general-video` | Author or edit a custom HyperFrames composition when no specialized workflow fi… |
+| `general-video` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/general-video` | Author or edit a custom HyperFrames composition when no specialized workflow fi… |
 | `humanizer` | symlink | `.claude-nebula`, `.claude` | `~/.agents/skills/humanizer` | Remove signs of AI-generated writing from text. Use when editing or reviewing t… |
-| `hyperframes` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes` | Mandatory entry point: read this first for any request to make, create, edit, a… |
-| `hyperframes-animation` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-animation` | All animation knowledge for HyperFrames — atomic motion rules, multi-phase scen… |
-| `hyperframes-audio` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-audio` | Use when audio already placed in a HyperFrames composition needs to be mixed: a… |
-| `hyperframes-cli` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-cli` | Use the HyperFrames CLI development loop: init, add, catalog, capture, lint, ch… |
-| `hyperframes-core` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-core` | The HyperFrames composition contract — build one renderable project. Use for co… |
-| `hyperframes-creative` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-creative` | Non-animation creative direction for HyperFrames videos. Use for design spec (f… |
-| `hyperframes-keyframes` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-keyframes` | Use when a HyperFrames composition needs seek-safe 2D/3D keyframes, GSAP timeli… |
-| `hyperframes-registry` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/hyperframes-registry` | Install, discover, and wire registry blocks and components into HyperFrames com… |
-| `media-use` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/media-use` | Agent Media OS, the single skill for every media need in a HyperFrames project.… |
+| `hyperframes` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes` | Mandatory entry point: read this first for any request to make, create, edit, a… |
+| `hyperframes-animation` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes-animation` | All animation knowledge for HyperFrames — atomic motion rules, multi-phase scen… |
+| `hyperframes-audio` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes-audio` | Use when audio already placed in a HyperFrames composition needs to be mixed: f… |
+| `hyperframes-cli` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes-cli` | Use the HyperFrames CLI development loop: init, add, catalog, capture, lint, ch… |
+| `hyperframes-core` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes-core` | The HyperFrames composition contract — build one renderable project. Use for co… |
+| `hyperframes-creative` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes-creative` | Non-animation creative direction for HyperFrames videos. Use for design spec (f… |
+| `hyperframes-keyframes` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes-keyframes` | Use when a HyperFrames composition needs a punch-in, punch-out, zoom, reframe,… |
+| `hyperframes-registry` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/hyperframes-registry` | Install, discover, and wire registry blocks and components into HyperFrames com… |
+| `media-use` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/media-use` | Agent Media OS, the single skill for every media need in a HyperFrames project.… |
 | `motion-doctrine` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/motion-doctrine` | GATEWAY — load FIRST before composing any HyperFrames animation or video. The h… |
 | `motion-graphics` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/motion-graphics` | A short, design-led motion graphic where motion is the message — kinetic typogr… |
-| `music-to-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/music-to-video` | Turn a music track (an audio file, a video to pull audio from, or a track gener… |
+| `music-to-video` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/music-to-video` | Turn a music track (an audio file, a video to pull audio from, or a track gener… |
 | `oversized-cursor` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/oversized-cursor` | House-style oversized macOS cursor technique for HyperFrames launch videos. Loa… |
 | `parametric-3d-printing` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/parametric-3d-printing` | Use this skill when the user wants to design a 3D-printable physical object the… |
-| `pr-to-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/pr-to-video` | Turn a GitHub pull request (a PR URL, owner/repo#N, or 'this PR' in a checked-o… |
-| `product-launch-video` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/product-launch-video` | Turn a product or marketing URL, pasted script, or brief into a product launch… |
-| `remotion-to-hyperframes` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/remotion-to-hyperframes` | Port an existing Remotion (React) composition''s source to HyperFrames HTML. Us… |
+| `pr-to-video` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/pr-to-video` | Turn a GitHub pull request (a PR URL, owner/repo#N, or 'this PR' in a checked-o… |
+| `product-launch-video` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/product-launch-video` | Turn a product or marketing URL, pasted script, or brief into a product launch… |
+| `remotion-to-hyperframes` | real folder | `.claude-nebula`, `.claude` | `~/.claude-nebula/skills/remotion-to-hyperframes` | Port an existing Remotion (React) composition''s source to HyperFrames HTML. Us… |
 | `seam-craft` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/seam-craft` | Render-correctness doctrine for scene-to-scene seams in HyperFrames launch vide… |
 | `slideshow` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/slideshow` | Author a HyperFrames slideshow — a presentation, pitch deck, or interactive dec… |
 | `talking-head-recut` | symlink | `.claude-nebula`, `.claude` | `~/.claude/skills/talking-head-recut` | Package an existing talking-head / interview / podcast video with timed, design… |
