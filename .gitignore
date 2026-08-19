@@ -3,3 +3,4 @@
 *.log
 dist/
 .env*
+__pycache__/
