@@ -14,6 +14,8 @@ PLIST="$HOME/Library/LaunchAgents/com.nik.gswitch.plist"
 LABEL="com.nik.gswitch"
 PORT=8765   # 8000 is taken by another local service on this Mac
 SERVICES="gmail drive calendar docs"
+# extended (45 tools) covers comments and paragraph styling; core drops both.
+TIER="extended"
 
 # Real binaries, bypassing any dev-shell shims that intercept uv/uvx.
 find_bin() { ls "/opt/homebrew/bin/$1" "$HOME/.local/bin/$1" "/usr/local/bin/$1" 2>/dev/null | head -1; }
@@ -97,7 +99,7 @@ cmd_install() {
     mkdir -p "$GS" "$HOME/Library/LaunchAgents"
     sed -e "s|__UVX__|$UVX|g" -e "s|__HOME__|$HOME|g" -e "s|__EXTURL__|$url|g" \
         -e "s|__CLIENT_ID__|$GOOGLE_OAUTH_CLIENT_ID|g" -e "s|__CLIENT_SECRET__|$GOOGLE_OAUTH_CLIENT_SECRET|g" \
-        -e "s|__SERVICES__|$SERVICES|g" -e "s|__PORT__|$PORT|g" \
+        -e "s|__SERVICES__|$SERVICES|g" -e "s|__PORT__|$PORT|g" -e "s|__TIER__|$TIER|g" \
         "$(dirname "$0")/com.nik.gswitch.plist.template" > "$PLIST"
     chmod 600 "$PLIST"
     launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null

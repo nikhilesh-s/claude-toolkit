@@ -11,7 +11,7 @@
 		<string>--transport</string>
 		<string>streamable-http</string>
 		<string>--tool-tier</string>
-		<string>core</string>
+		<string>__TIER__</string>
 		<string>--tools</string>
 		<string>__SERVICES__</string>
 	</array>

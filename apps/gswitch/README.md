@@ -24,10 +24,17 @@ panel (start/stop/status/URL), not a switcher.
 `GSwitch.app` in the Dock shows connector state and offers: start, stop, restart,
 copy connector URL, run the setup check, open the log.
 
-Tools exposed: 19, covering Gmail (search/read/send/draft/label), Drive
-(search/read/create/update/folders), Calendar (list/create/update/delete events),
-and Docs (create/edit/find-replace). Adjust the `SERVICES` line in
-[`gswitch`](gswitch) to add Sheets, Slides, Tasks, Contacts, or Chat.
+Tools exposed: **45** (the `extended` tier), covering Gmail
+(search/read/send/draft/labels/filters), Drive
+(search/read/create/update/folders/permissions), Calendar (list/create/update/
+delete events), and Docs — including reading and writing **comments**
+(`list_document_comments`, `manage_document_comment`), **formatting and
+highlights** (`modify_doc_text` takes bold, italic, text colour and background
+colour; `update_paragraph_style` handles headings), find-and-replace, and
+markdown export. The `core` tier was rejected because it drops comments and
+paragraph styling entirely. Adjust `SERVICES` and `TIER` in [`gswitch`](gswitch)
+to add Sheets, Slides, Tasks, Contacts, or Chat, or to go to `complete` (57
+tools, adds images, headers/footers, tables, and raw batch updates).
 
 ## Setup
 
@@ -58,6 +65,11 @@ asks you to enable HTTPS or Funnel for your tailnet, approve it in the admin
 console link it prints.
 
 ### 3. Google Cloud OAuth client
+
+Do this **once, under your personal account only** — a Google Cloud project is
+just an app registration, not a data connection. Any Google account can later
+sign in *through* it. There is no college Cloud project, and your existing
+personal ChatGPT connectors are untouched.
 
 Signed in as **niksuravarjjala@gmail.com** at https://console.cloud.google.com,
 in the `gswitch` project:
