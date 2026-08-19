@@ -15,7 +15,10 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "scripts"))
-from categorize_skills import CATEGORIES, SOURCE_OVERRIDES as SOURCES, DEFAULT_SOURCE  # noqa: E402
+from categorize_skills import (  # noqa: E402
+    CATEGORIES, SOURCE_OVERRIDES as SOURCES, DEFAULT_SOURCE,
+    GSTACK_ROOT, GSTACK_EXTRA_FILES,
+)
 
 SKILLS_DIR = os.path.join(REPO, "skills")
 TSV = os.path.join(REPO, "scripts", "skill_index.tsv")
@@ -49,6 +52,10 @@ def collect():
         md = os.path.join(SKILLS_DIR, name, "SKILL.md")
         if not os.path.isfile(md):
             continue
+        if name in GSTACK_EXTRA_FILES:
+            continue
+        if name != "gstack" and os.path.realpath(md).startswith(GSTACK_ROOT + os.sep):
+            continue  # gstack facets, not independent skills — same rule as categorize
         fm, body = parse_skill_md(md)
         entries.append({
             "kind": "skill",
