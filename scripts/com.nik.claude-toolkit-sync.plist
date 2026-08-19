@@ -13,7 +13,7 @@
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>/Users/niks/claude-toolkit/scripts/nik_daily_sync.sh</string>
+    <string>/Users/niks/claude-toolkit-sync/scripts/nik_daily_sync.sh</string>
   </array>
 
   <!-- Twice daily: 11:00 and 23:00. -->
@@ -34,7 +34,7 @@
   <false/>
 
   <key>WorkingDirectory</key>
-  <string>/Users/niks/claude-toolkit</string>
+  <string>/Users/niks/claude-toolkit-sync</string>
 
   <key>EnvironmentVariables</key>
   <dict>
