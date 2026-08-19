@@ -13,7 +13,7 @@
 		<string>--tool-tier</string>
 		<string>__TIER__</string>
 		<string>--tools</string>
-		<string>__SERVICES__</string>
+__SERVICES_LINES__
 	</array>
 	<key>EnvironmentVariables</key>
 	<dict>

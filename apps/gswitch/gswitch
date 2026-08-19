@@ -97,10 +97,17 @@ cmd_install() {
     [ -n "$host" ] || { echo "cannot determine Tailscale hostname; sign in to Tailscale first"; exit 1; }
     url="https://$host"
     mkdir -p "$GS" "$HOME/Library/LaunchAgents"
-    sed -e "s|__UVX__|$UVX|g" -e "s|__HOME__|$HOME|g" -e "s|__EXTURL__|$url|g" \
-        -e "s|__CLIENT_ID__|$GOOGLE_OAUTH_CLIENT_ID|g" -e "s|__CLIENT_SECRET__|$GOOGLE_OAUTH_CLIENT_SECRET|g" \
-        -e "s|__SERVICES__|$SERVICES|g" -e "s|__PORT__|$PORT|g" -e "s|__TIER__|$TIER|g" \
-        "$(dirname "$0")/com.nik.gswitch.plist.template" > "$PLIST"
+    # --tools needs one <string> per service, so expand that line rather than sed it.
+    while IFS= read -r line; do
+        if [ "$line" = "__SERVICES_LINES__" ]; then
+            for s in $SERVICES; do printf '\t\t<string>%s</string>\n' "$s"; done
+        else
+            printf '%s\n' "$line"
+        fi
+    done < "$(dirname "$0")/com.nik.gswitch.plist.template" \
+    | sed -e "s|__UVX__|$UVX|g" -e "s|__HOME__|$HOME|g" -e "s|__EXTURL__|$url|g" \
+          -e "s|__CLIENT_ID__|$GOOGLE_OAUTH_CLIENT_ID|g" -e "s|__CLIENT_SECRET__|$GOOGLE_OAUTH_CLIENT_SECRET|g" \
+          -e "s|__PORT__|$PORT|g" -e "s|__TIER__|$TIER|g" > "$PLIST"
     chmod 600 "$PLIST"
     launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null
     launchctl bootstrap "gui/$(id -u)" "$PLIST" || { echo "launchctl bootstrap failed"; exit 1; }
