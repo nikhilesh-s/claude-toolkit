@@ -52,7 +52,7 @@ CATEGORIES = {
     "Developer & Agent Tooling": [
         "finding-duplicate-functions", "mcp-cli", "using-tmux-for-interactive-commands",
         "windows-vm", "pi-agent", "get-available-resources", "gstack", "find-skills",
-        "which-skill",
+        "which-skill", "final-check", "ai-vibe-coding-check",
     ],
     "Security & Pentesting": [
         "ffuf-web-fuzzing",
