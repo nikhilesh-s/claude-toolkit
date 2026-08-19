@@ -1,67 +1,72 @@
-# gswitch — multi-account Google connector for ChatGPT (design)
+# gswitch — second Google account for ChatGPT (design)
 
-Date: 2026-08-18. Approved by Nik in chat.
+Date: 2026-08-18. Revised after research; original custom-server design superseded.
 
 ## Problem
 
-ChatGPT's built-in Google connector authenticates one Google account at a time.
-Nik wants ChatGPT (used inside the Dia browser, one ChatGPT Plus account) to read
-and write data from multiple Google accounts — personal (niksuravarjjala@gmail.com)
-plus a college account added later — and switch between them with one click from a
-Dock tile.
+ChatGPT allows one native Google connection per account. Nik (ChatGPT Plus, uses
+ChatGPT in the Dia browser) wants read+write access to both his personal Google
+account and a college `.edu` account.
 
-## Approach
+## What the research changed
 
-Self-hosted MCP server on the Mac, added to ChatGPT as a Developer Mode custom
-connector over a stable ngrok free static domain. The server holds OAuth tokens for
-any number of Google accounts; a single "active account" file selects which one all
-tools operate on. The Dock tile is a tiny AppleScript app that shows a picker of
-known accounts and rewrites the active file. Tools read the active file at call
-time, so a switch takes effect instantly with no reconnect in ChatGPT.
+The first design (custom FastMCP server + active-account file + ngrok + Dock
+switcher) was rewritten after checking current facts:
 
-## Components
+- ChatGPT's **native** Google connector gained write actions in June 2026 (Gmail
+  send Jun 5, Drive write Jun 15, Calendar event creation). The personal account
+  therefore needs no custom work at all.
+- Multi-account is still unsupported natively and unacknowledged by OpenAI
+  (feature request opened 2026-08-14, no staff reply).
+- Every Google-side consolidation trick fails: Gmail delegation is invisible to
+  the API, POP/Gmailify import is discontinued Jan 2027, Drive shared-with-me
+  search through the connector is unreliable, and the Calendar connector has an
+  open bug ignoring secondary calendars.
+- `taylorwilsdon/workspace-mcp` (actively maintained, 3k stars, official ChatGPT
+  Developer Mode guide) already does everything the custom server did and more,
+  so the custom server was deleted.
+- **A ChatGPT connector entry binds to the Google account that completed its
+  OAuth flow.** Registering the connector twice gives both accounts in one
+  conversation. This removes the need for account switching entirely — the
+  original design's central mechanism was solving a non-problem.
+- An OAuth client left in *Testing* publishing status expires refresh tokens
+  every 7 days. The app must be published (unverified is fine).
+- ngrok free is 1 GB/month with an interstitial; Tailscale Funnel is free with a
+  stable hostname and no domain purchase.
 
-- `apps/gswitch/gswitch.py` — single Python file (PEP 723 inline deps, run via
-  `uv run`). CLI subcommands:
-  - `add` — Google OAuth flow in the browser; saves token to
-    `~/.gswitch/accounts/<email>.json`; first account becomes active.
-  - `list` / `use <email>` — inspect / set `~/.gswitch/active`.
-  - `serve` — FastMCP server, streamable HTTP, `127.0.0.1:8765`, mounted at a
-    secret random path `/mcp-<32 hex>` (generated once, stored in `~/.gswitch/secret`).
-  - `up` — starts ngrok (`ngrok http --url=<domain> 8765`) as a subprocess plus the
-    server; domain read from `~/.gswitch/ngrok_domain`.
-  - `url` — prints the full connector URL for ChatGPT.
-  - `selfcheck` — offline assertions on the account-store/active/secret logic.
-- MCP tools (all operate on the active account, read+write):
-  `active_account`, `drive_search`, `drive_read_file`, `drive_create_doc`,
-  `drive_update_doc`, `gmail_search`, `gmail_read`, `gmail_send`, `gmail_draft`,
-  `calendar_list_events`, `calendar_create_event`.
-- OAuth scopes: `gmail.modify`, `drive`, `calendar`. Doc create/update goes through
-  Drive upload-with-convert, so no Docs API scope needed.
-- `GSwitch.applescript` → compiled with `osacompile` to `GSwitch.app` (build
-  artifact, gitignored). Picker via `choose from list`, active account marked;
-  selection rewrites `~/.gswitch/active` and posts a notification.
-- `com.nik.gswitch.plist.template` + `install.sh` — installer builds the app,
-  templates and loads a LaunchAgent that keeps `gswitch up` running, prints the
-  manual-steps checklist.
-- `EXTENSIONS.md` — provider model for non-Google services (doc only).
+## Design
 
-## Security posture (known ceiling)
+- **Personal account**: ChatGPT's native Google connector. No code.
+- **College account**: `uvx workspace-mcp --transport streamable-http --tool-tier
+  core --tools gmail drive calendar docs` (19 tools) on port **8765** (8000 is
+  occupied by another local service), under a launchd KeepAlive agent, with
+  `MCP_ENABLE_OAUTH21=true` and `WORKSPACE_EXTERNAL_URL` /
+  `GOOGLE_OAUTH_REDIRECT_URI` pointed at the Tailscale Funnel hostname.
+- **Exposure**: `tailscale funnel --bg http://localhost:8765`, a persistent
+  config rather than a managed process.
+- **`gswitch`** (bash): `doctor`, `config`, `funnel`, `install`, `start`, `stop`,
+  `restart`, `status`, `url`, `logs`. Health check matches the `workspace-mcp`
+  service name so a foreign app on the port cannot be mistaken for it.
+- **`GSwitch.app`**: Dock control panel (start/stop/restart, copy connector URL,
+  setup check, open log) — kept at Nik's request, repurposed from switcher to
+  control panel.
+- Secrets: client secret in `~/.gswitch/config` (600), tokens in
+  `~/.gswitch/creds/`.
 
-ChatGPT custom connectors support only "no auth" or full OAuth server. We use
-no-auth plus an unguessable secret path on a private ngrok domain. Upgrade path:
-implement MCP OAuth on the server if this stops feeling safe. Tokens never leave
-the Mac. Mac must be awake for the connector to work.
+## Verified
 
-## Manual steps (Nik)
+Server boots via `uvx`, `/health` returns `workspace-mcp` v1.25.0, 19 tools
+listed over streamable HTTP including `send_gmail_message`, `create_doc`,
+`create_drive_file`, `modify_doc_text`. `gswitch status`/`doctor` report
+correctly in both up and down states, and degrade cleanly with Tailscale absent.
 
-Google Cloud project + OAuth consent (External, both emails as test users) +
-Desktop OAuth client → `~/.gswitch/client_secret.json`; ngrok account + authtoken +
-free static domain; add connector in ChatGPT Settings → Connectors (Developer
-Mode). College account may be blocked by university OAuth policy — probe early;
-if blocked, no workaround exists.
+## Open risk
+
+The college Google Workspace tenant may block unverified third-party OAuth apps;
+this is enforced Google-side and unavoidable. Must be tested before relying on
+it. Fallback: a second ChatGPT account signed in with the college Google login.
 
 ## Out of scope
 
-Docker, databases, multi-user, server-side OAuth, non-Google providers (documented
-in EXTENSIONS.md only).
+Non-Google providers (documented in EXTENSIONS.md), always-on hosting, phone
+access while the Mac sleeps.

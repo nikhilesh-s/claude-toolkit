@@ -24,7 +24,7 @@ This file lists everything related to Claude Code on this machine, in one place.
 | [Serena](#serena) | MCP server (code intel) | ✅ active, auto-starts |
 | [status.sh](#statussh) | Script | ✅ working |
 | [Instagram-sourced tools](#instagram-sourced-2026-08-16) | CLI tools + apps | ✅ mostly active |
-| [gswitch](apps/gswitch/README.md) | MCP server + Dock app | 🔧 built, needs one-time setup (see its README) |
+| [gswitch](apps/gswitch/README.md) | MCP connector + Dock app | 🔧 built, needs Tailscale + Google OAuth setup (see its README) |
 | [What runs on its own](#what-runs-on-its-own-and-what-needs-setup) | Reference table | — |
 
 **Skills** live here. `~/.claude/skills/` holds only symlinks that point back into `skills/`.

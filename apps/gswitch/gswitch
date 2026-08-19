@@ -1,0 +1,143 @@
+#!/bin/bash
+# gswitch — control script for the Google Workspace MCP connector used by ChatGPT.
+#
+# Runs taylorwilsdon/workspace-mcp locally and exposes it over Tailscale Funnel
+# so ChatGPT (Developer Mode custom connector) can reach it. Each ChatGPT
+# connector entry binds to whichever Google account completed its OAuth flow, so
+# one server serves several accounts — add one connector entry per account.
+set -uo pipefail
+
+GS="$HOME/.gswitch"
+CONFIG="$GS/config"
+LOG="$GS/gswitch.log"
+PLIST="$HOME/Library/LaunchAgents/com.nik.gswitch.plist"
+LABEL="com.nik.gswitch"
+PORT=8765   # 8000 is taken by another local service on this Mac
+SERVICES="gmail drive calendar docs"
+
+# Real binaries, bypassing any dev-shell shims that intercept uv/uvx.
+find_bin() { ls "/opt/homebrew/bin/$1" "$HOME/.local/bin/$1" "/usr/local/bin/$1" 2>/dev/null | head -1; }
+UVX="$(find_bin uvx)"
+TS="$(find_bin tailscale)"
+[ -n "$TS" ] || TS=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+
+# shellcheck source=/dev/null
+[ -f "$CONFIG" ] && . "$CONFIG"
+
+# Match on the service name, not just a 200 — another app may own the port.
+server_up() {
+    curl -s -m 2 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -q '"service":"workspace-mcp"'
+}
+
+funnel_host() {
+    [ -x "$TS" ] || return 1
+    "$TS" status --json 2>/dev/null \
+        | grep -o '"DNSName": *"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/\.$//'
+}
+
+connector_url() {
+    local h; h="$(funnel_host)"
+    [ -n "$h" ] && echo "https://$h/mcp"
+}
+
+cmd_doctor() {
+    local ok=0
+    printf 'uvx                 : %s\n' "${UVX:-MISSING — install uv: https://docs.astral.sh/uv/}"
+    [ -n "$UVX" ] || ok=1
+    if [ -x "$TS" ]; then printf 'tailscale           : %s\n' "$TS"
+    else printf 'tailscale           : MISSING — brew install --cask tailscale, then sign in\n'; ok=1; fi
+    if [ -f "$CONFIG" ] && [ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" ] && [ -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]; then
+        printf 'google oauth client : configured (%s…)\n' "${GOOGLE_OAUTH_CLIENT_ID:0:18}"
+    else
+        printf 'google oauth client : MISSING — see README step 3, then `gswitch config`\n'; ok=1
+    fi
+    local h; h="$(funnel_host)"
+    if [ -n "$h" ]; then printf 'tailscale hostname  : %s\n' "$h"
+    else printf 'tailscale hostname  : UNKNOWN — sign in to Tailscale first\n'; ok=1; fi
+    if [ -x "$TS" ] && "$TS" funnel status 2>/dev/null | grep -q "$PORT"; then
+        printf 'funnel              : serving port %s\n' "$PORT"
+    else
+        printf 'funnel              : NOT SERVING — run `gswitch funnel`\n'; ok=1
+    fi
+    if server_up; then printf 'mcp server          : up on :%s\n' "$PORT"
+    else printf 'mcp server          : down — run `gswitch start`\n'; ok=1; fi
+    [ -f "$PLIST" ] && printf 'launch agent        : installed\n' || printf 'launch agent        : not installed — run `gswitch install`\n'
+    local u; u="$(connector_url)"
+    [ -n "$u" ] && printf '\nChatGPT connector URL: %s\n' "$u"
+    return $ok
+}
+
+cmd_config() {
+    mkdir -p "$GS"
+    printf 'Paste values from your Google Cloud OAuth client (see README step 3).\n\n'
+    read -r -p 'Client ID: ' cid
+    read -r -p 'Client secret: ' csec
+    [ -n "$cid" ] && [ -n "$csec" ] || { echo "both values required"; exit 1; }
+    umask 077
+    cat > "$CONFIG" <<EOF
+GOOGLE_OAUTH_CLIENT_ID=$cid
+GOOGLE_OAUTH_CLIENT_SECRET=$csec
+EOF
+    chmod 600 "$CONFIG"
+    echo "saved to $CONFIG (mode 600)"
+}
+
+cmd_funnel() {
+    [ -x "$TS" ] || { echo "tailscale not installed"; exit 1; }
+    "$TS" funnel --bg "http://localhost:$PORT" || exit 1
+    echo "funnel serving port $PORT"
+    cmd_url
+}
+
+cmd_install() {
+    [ -f "$CONFIG" ] || { echo "run \`gswitch config\` first"; exit 1; }
+    local host url; host="$(funnel_host)"
+    [ -n "$host" ] || { echo "cannot determine Tailscale hostname; sign in to Tailscale first"; exit 1; }
+    url="https://$host"
+    mkdir -p "$GS" "$HOME/Library/LaunchAgents"
+    sed -e "s|__UVX__|$UVX|g" -e "s|__HOME__|$HOME|g" -e "s|__EXTURL__|$url|g" \
+        -e "s|__CLIENT_ID__|$GOOGLE_OAUTH_CLIENT_ID|g" -e "s|__CLIENT_SECRET__|$GOOGLE_OAUTH_CLIENT_SECRET|g" \
+        -e "s|__SERVICES__|$SERVICES|g" -e "s|__PORT__|$PORT|g" \
+        "$(dirname "$0")/com.nik.gswitch.plist.template" > "$PLIST"
+    chmod 600 "$PLIST"
+    launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null
+    launchctl bootstrap "gui/$(id -u)" "$PLIST" || { echo "launchctl bootstrap failed"; exit 1; }
+    echo "installed and started; waiting for server…"
+    for _ in $(seq 1 30); do server_up && break; sleep 1; done
+    cmd_status
+}
+
+cmd_start() { launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl kickstart "gui/$(id -u)/$LABEL"; sleep 2; cmd_status; }
+cmd_stop()  { launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null; echo "stopped"; }
+cmd_restart() { launchctl kickstart -k "gui/$(id -u)/$LABEL" 2>/dev/null; sleep 2; cmd_status; }
+
+cmd_status() {
+    if server_up; then echo "server: UP"; else echo "server: DOWN"; fi
+    if [ -x "$TS" ] && "$TS" funnel status 2>/dev/null | grep -q "$PORT"; then
+        echo "funnel: ON"
+    else
+        echo "funnel: OFF"
+    fi
+    local u; u="$(connector_url)"; [ -n "$u" ] && echo "url:    $u"
+}
+
+cmd_url() {
+    local u; u="$(connector_url)"
+    [ -n "$u" ] || { echo "no Tailscale hostname yet — sign in to Tailscale"; exit 1; }
+    echo "$u"
+    printf '%s' "$u" | pbcopy 2>/dev/null && echo "(copied to clipboard)"
+}
+
+case "${1:-status}" in
+    doctor)  cmd_doctor ;;
+    config)  cmd_config ;;
+    funnel)  cmd_funnel ;;
+    install) cmd_install ;;
+    start)   cmd_start ;;
+    stop)    cmd_stop ;;
+    restart) cmd_restart ;;
+    status)  cmd_status ;;
+    url)     cmd_url ;;
+    logs)    tail -n "${2:-50}" "$LOG" ;;
+    *) echo "usage: gswitch {doctor|config|funnel|install|start|stop|restart|status|url|logs}"; exit 1 ;;
+esac
