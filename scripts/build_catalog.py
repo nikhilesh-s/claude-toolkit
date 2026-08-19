@@ -90,10 +90,79 @@ def main():
 
 
 def render(data_json, entries):
-    # UI arrives in later iterations; emit a valid page with raw data for now.
-    return ("<!doctype html><meta charset='utf-8'><title>Claude Toolkit Catalog</title>"
-            f"<script>const DATA = {data_json};</script>"
-            "<body><p>catalog UI pending</p></body>")
+    return TEMPLATE.replace("__DATA__", data_json)
+
+
+TEMPLATE = r"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Toolkit Catalog</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212b; --text: #e6e9ef;
+    --muted: #9aa3b2; --line: #2a2f3a; --accent: #d97757; --chip: #232836;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f5f2; --panel:#ffffff; --panel2:#f0eeea; --text:#1f2328;
+            --muted:#5c6570; --line:#dcd9d3; --accent:#c05d3d; --chip:#eceae5; }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text);
+         font: 15px/1.5 ui-sans-serif, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 28px 24px 12px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 22px; letter-spacing: -.02em; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); margin-top: 4px; font-size: 13.5px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 12px 24px 64px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+          gap: 12px; margin-top: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          padding: 14px 16px; cursor: pointer; }
+  .card:hover { border-color: var(--accent); }
+  .card h3 { font-size: 15px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .card .desc { color: var(--muted); font-size: 13px; margin-top: 6px;
+                display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+                overflow: hidden; }
+  .meta { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--chip);
+           color: var(--muted); }
+  .badge.kind-skill { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Claude <span>Toolkit</span> Catalog</h1>
+  <div class="sub" id="sub"></div>
+</header>
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const DATA = __DATA__;
+const grid = document.getElementById('grid');
+function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function card(e, i){
+  return `<div class="card" data-i="${i}">
+    <h3>${esc(e.name)}</h3>
+    <div class="desc">${esc(e.desc)}</div>
+    <div class="meta">
+      <span class="badge kind-${e.kind}">${e.kind}</span>
+      <span class="badge">${esc(e.category)}</span>
+    </div>
+  </div>`;
+}
+function draw(list){
+  grid.innerHTML = list.map(([e,i]) => card(e,i)).join('');
+  const s = list.filter(([e]) => e.kind==='skill').length;
+  document.getElementById('sub').textContent =
+    `${s} skills · ${list.length - s} plugins — click a card for full details`;
+}
+draw(DATA.map((e,i)=>[e,i]));
+</script>
+</body>
+</html>"""
 
 
 if __name__ == "__main__":
