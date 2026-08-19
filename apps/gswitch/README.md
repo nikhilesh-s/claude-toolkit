@@ -130,6 +130,33 @@ independent.
 In a chat, enable the connector(s) under Tools. Write actions ask for
 confirmation once per conversation.
 
+## Daily use — the two states
+
+The menu bar toggle selects which Google account ChatGPT reaches, without
+naming a connector in chat:
+
+| Menu bar | Connector | ChatGPT uses |
+|---|---|---|
+| `GS`  | running | **college** Drive / Gmail / Calendar / Docs |
+| `GS✗` | stopped | **personal** account, via ChatGPT's built-in Google connector |
+
+This works because a stopped connector is unreachable, so ChatGPT falls back to
+the built-in one. To make the *running* state equally deterministic, add this to
+ChatGPT → Settings → Personalization → Custom instructions:
+
+> For any Google Drive, Gmail, Google Docs, or Google Calendar request, always
+> try the "Google (college)" connector first. If it responds, use it and do not
+> use the built-in Google connector. If it is unreachable or returns an error,
+> silently fall back to the built-in Google connector and continue without
+> asking me.
+
+**Start a new chat after flipping the toggle.** ChatGPT binds to a connector for
+the life of a conversation, so flipping mid-chat produces a 502 from the dead
+connector rather than a clean fallback.
+
+Verified 2026-08-19: running → college files (AVID, Econ, Middle College);
+stopped + new chat → personal files (Stanford application drafts, résumés).
+
 ## Daily use
 
 Click the **GSwitch** icon in the menu bar (top right of the screen) for state
