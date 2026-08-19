@@ -134,6 +134,29 @@ TEMPLATE = r"""<!doctype html>
     border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: inherit; }
   .bar input { flex: 1; min-width: 220px; }
   .bar input:focus, .bar select:focus { outline: 1px solid var(--accent); }
+  #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex;
+             justify-content: center; padding: 4vh 16px; z-index: 10; }
+  #panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+           max-width: 860px; width: 100%; max-height: 92vh; overflow-y: auto;
+           padding: 26px 30px; position: relative; }
+  #close { position: sticky; top: 0; float: right; background: var(--chip); color: var(--text);
+           border: 0; border-radius: 8px; font-size: 18px; width: 32px; height: 32px; cursor: pointer; }
+  #detail h2 { font-family: ui-monospace, Menlo, monospace; font-size: 20px; margin-bottom: 4px; }
+  #detail .src { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  #detail .lead { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px;
+                  color: var(--muted); margin-bottom: 18px; }
+  .md h1, .md h2, .md h3 { margin: 18px 0 6px; font-size: 16px; }
+  .md h1 { font-size: 18px; }
+  .md p, .md ul, .md ol { margin: 8px 0; }
+  .md li { margin-left: 20px; }
+  .md code { background: var(--panel2); border-radius: 4px; padding: 1px 5px;
+             font: 12.5px ui-monospace, Menlo, monospace; }
+  .md pre { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+            padding: 12px; overflow-x: auto; margin: 10px 0; }
+  .md pre code { background: none; padding: 0; }
+  .md table { border-collapse: collapse; margin: 10px 0; display: block; overflow-x: auto;
+              font-size: 13px; }
+  .md th, .md td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; }
 </style>
 </head>
 <body>
@@ -150,6 +173,10 @@ TEMPLATE = r"""<!doctype html>
   <div class="grid" id="grid"></div>
   <p id="empty" style="display:none;color:var(--muted);margin-top:24px">Nothing matches. Clear a filter.</p>
 </main>
+<div id="overlay" hidden><div id="panel">
+  <button id="close" aria-label="Close">×</button>
+  <div id="detail"></div>
+</div></div>
 <script>
 const DATA = __DATA__;
 const grid = document.getElementById('grid');
@@ -187,6 +214,59 @@ catSel.addEventListener('change', apply);
 document.addEventListener('keydown', ev => {
   if (ev.key === '/' && document.activeElement !== q) { ev.preventDefault(); q.focus(); }
 });
+const overlay = document.getElementById('overlay'), detail = document.getElementById('detail');
+function mdLite(src){
+  const chunks = src.split(/```/);
+  let out = '';
+  chunks.forEach((c, idx) => {
+    if (idx % 2) { out += '<pre><code>' + esc(c.replace(/^\w+\n/, '')) + '</code></pre>'; return; }
+    const lines = c.split('\n'); let html = '', inList = false, tableBuf = [];
+    const flushTable = () => {
+      if (!tableBuf.length) return;
+      const rows = tableBuf.filter(r => !/^\|[\s:|-]+\|$/.test(r.trim()));
+      html += '<table>' + rows.map((r, ri) => {
+        const cells = r.trim().replace(/^\||\|$/g, '').split('|');
+        const tag = ri === 0 ? 'th' : 'td';
+        return '<tr>' + cells.map(x => `<${tag}>` + inline(x.trim()) + `</${tag}>`).join('') + '</tr>';
+      }).join('') + '</table>';
+      tableBuf = [];
+    };
+    const inline = t => esc(t)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    lines.forEach(ln => {
+      if (/^\|/.test(ln.trim())) { tableBuf.push(ln); return; }
+      flushTable();
+      const h = ln.match(/^(#{1,3})\s+(.*)/);
+      const li = ln.match(/^\s*[-*]\s+(.*)/) || ln.match(/^\s*\d+\.\s+(.*)/);
+      if (h) { if (inList) { html += '</ul>'; inList = false; }
+               html += `<h${h[1].length}>` + inline(h[2]) + `</h${h[1].length}>`; }
+      else if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; }
+      else if (!ln.trim()) { if (inList) { html += '</ul>'; inList = false; } }
+      else { if (inList) { html += '</ul>'; inList = false; } html += '<p>' + inline(ln) + '</p>'; }
+    });
+    flushTable();
+    if (inList) html += '</ul>';
+    out += html;
+  });
+  return out;
+}
+function openDetail(i){
+  const e = DATA[i];
+  detail.innerHTML = `<h2>${esc(e.name)}</h2>
+    <div class="src">${e.kind} · ${esc(e.category)} · source: ${esc(e.source)}</div>
+    <div class="lead">${esc(e.desc)}</div>
+    <div class="md">${e.body ? mdLite(e.body) : '<p>Plugin — full docs live in the plugin package; this one-liner is the indexed description.</p>'}</div>`;
+  overlay.hidden = false;
+  document.getElementById('panel').scrollTop = 0;
+}
+grid.addEventListener('click', ev => {
+  const c = ev.target.closest('.card');
+  if (c) openDetail(+c.dataset.i);
+});
+document.getElementById('close').onclick = () => overlay.hidden = true;
+overlay.addEventListener('click', ev => { if (ev.target === overlay) overlay.hidden = true; });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') overlay.hidden = true; });
 apply();
 </script>
 </body>
