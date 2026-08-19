@@ -137,6 +137,7 @@ TEMPLATE = r"""<!doctype html>
   .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
   .chips .badge { cursor: pointer; border: 1px solid transparent; }
   .chips .badge.on { border-color: var(--accent); color: var(--accent); }
+  #overlay[hidden] { display: none; }
   #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex;
              justify-content: center; padding: 4vh 16px; z-index: 10; }
   #panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
