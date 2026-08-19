@@ -22,7 +22,7 @@ from datetime import datetime
 from email.message import EmailMessage
 
 TO       = "niksuravarjjala@gmail.com"
-FROM     = os.environ.get("NIK_SMTP_USER", "nebula.markdown@gmail.com")
+FROM     = os.environ.get("NIK_SMTP_USER", "niksuravarjjala@gmail.com")
 SMTP     = ("smtp.gmail.com", 587)
 KEYCHAIN = "claude-toolkit-smtp"
 

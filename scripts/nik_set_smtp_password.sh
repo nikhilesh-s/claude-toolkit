@@ -10,7 +10,7 @@
 # surfacing later as SMTPAuthenticationError.
 set -uo pipefail
 
-ACCOUNT="${1:-nebula.markdown@gmail.com}"
+ACCOUNT="${1:-niksuravarjjala@gmail.com}"
 SERVICE="claude-toolkit-smtp"
 
 echo "Storing app password for: $ACCOUNT"
