@@ -241,6 +241,16 @@ over the built-in ones, once loaded:
 
 ---
 
+## final-check
+
+A 40-point pre-launch audit command, written for this repo on 2026-08-19. It merges two
+Instagram launch checklists into one verifiable list: 20 security items from millee.md
+(secrets, RLS, server-side auth, parameterized queries, headers, dependency scan) and 20
+site-content items from yatesvids (custom 404, above-fold CTA, robots.txt, meta tags,
+privacy page, analytics). The rules that make it useful: every verdict needs file:line
+evidence, N/A and UNKNOWN are honest outcomes, FAILs come first ordered by risk, and it
+never auto-fixes without asking. Run it with `/final-check` from any project directory.
+
 ## All skills (177)
 
 Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s frontmatter. Regenerate after adding or removing a skill:
