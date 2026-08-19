@@ -617,8 +617,8 @@ Generated from disk. Do not edit by hand — run `python3 scripts/nik_inventory.
 
 | | Count |
 |---|---|
-| Skills shipped by this repo | 230 |
-| …wired into every config dir (`.claude-nebula` + `.claude`) | 230 |
+| Skills shipped by this repo | 232 |
+| …wired into every config dir (`.claude-nebula` + `.claude`) | 232 |
 | …broken symlinks | 0 |
 | …present in repo but not installed | 0 |
 | …that come from the gstack submodule | 54 |
@@ -740,7 +740,7 @@ A plugin can carry its own skills, its own slash commands, and its own MCP serve
 | `writing-lean-proofs@trailofbits` | 0.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 | `yara-authoring@trailofbits` | 2.1.0 | yes | `trailofbits/skills` | no | 1 | 0 | 0 | — |
 
-That is **315 more skills** on top of the 230 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
+That is **315 more skills** on top of the 232 in this repo. Plugin skills are versioned with their plugin — `claude plugin update` changes them, this repo never does.
 
 ### MCP servers
 
@@ -898,7 +898,7 @@ the skill loads but its MCP steps fail.
 
 ### Every skill in this repo
 
-All 230 skill folders, alphabetical. **Wired** means `~/.claude/skills/<name>`
+All 232 skill folders, alphabetical. **Wired** means `~/.claude/skills/<name>`
 points back here, so editing the file in this repo changes the live skill immediately.
 
 | Skill | Wired | Source | Needs a credential | Needs MCP | What it does |
@@ -906,6 +906,7 @@ points back here, so editing the file in this repo changes the live skill immedi
 | `_gstack-command` | linked | garrytan/gstack (vendored router) | no | no | Router for the gstack skill suite. (gstack) |
 | `adaptyv` | linked | K-Dense-AI/claude-scientific-skills | yes | no | How to use the Adaptyv Bio Foundry API and Python SDK for protein experiment design, submission, and results… |
 | `aeon` | linked | K-Dense-AI/claude-scientific-skills | no | no | This skill should be used for time series machine learning tasks including classification, regression, cluste… |
+| `ai-vibe-coding-check` | linked | K-Dense-AI/claude-scientific-skills | no | no | Detect and fix the visual/copy tells that make a site look AI-generated ("vibe-coded"). Scans code and render… |
 | `analytical-method-validation` | linked | K-Dense-AI/claude-scientific-skills | no | no | Plan, execute, and document validation, verification, and transfer of analytical procedures under the governi… |
 | `anndata` | linked | K-Dense-AI/claude-scientific-skills | no | no | Data structure for annotated matrices in single-cell analysis. Use when working with .h5ad files or integrati… |
 | `arbor` | linked | K-Dense-AI/claude-scientific-skills | no | no | Autonomously improve a real artifact (code, training recipe, agent harness, data pipeline, prompt) against an… |
@@ -963,6 +964,7 @@ points back here, so editing the file in this repo changes the live skill immedi
 | `experimental-design` | linked | K-Dense-AI/claude-scientific-skills | no | no | Design experiments and studies BEFORE data is collected — choosing a design, randomizing, blocking, and layin… |
 | `exploratory-data-analysis` | linked | K-Dense-AI/claude-scientific-skills | no | no | Perform bounded, local exploratory analysis of explicitly supported scientific files. Use for redacted CSV/TS… |
 | `ffuf-web-fuzzing` | linked | jthack/ffuf_claude_skill | no | no | Expert guidance for ffuf web fuzzing during penetration testing, including authenticated fuzzing with raw req… |
+| `final-check` | linked | K-Dense-AI/claude-scientific-skills | no | no | Pre-launch audit for a web app or site. Runs a 40-point checklist — 20 security items (secrets, auth, injecti… |
 | `find-skills` | linked | vercel-labs/skills | no | no | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for… |
 | `finding-duplicate-functions` | linked | obra/superpowers-lab | no | no | Use when auditing a codebase for semantic duplication - functions that do the same thing but have different n… |
 | `flowio` | linked | K-Dense-AI/claude-scientific-skills | no | no | Read, inspect, and write Flow Cytometry Standard (FCS) 2.0, 3.0, and 3.1 files with FlowIO. Use for low-level… |
