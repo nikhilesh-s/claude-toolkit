@@ -129,6 +129,11 @@ TEMPLATE = r"""<!doctype html>
   .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--chip);
            color: var(--muted); }
   .badge.kind-skill { color: var(--accent); }
+  .bar { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .bar input, .bar select { background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: inherit; }
+  .bar input { flex: 1; min-width: 220px; }
+  .bar input:focus, .bar select:focus { outline: 1px solid var(--accent); }
 </style>
 </head>
 <body>
@@ -137,7 +142,13 @@ TEMPLATE = r"""<!doctype html>
   <div class="sub" id="sub"></div>
 </header>
 <main>
+  <div class="bar">
+    <input id="q" type="search" placeholder="Search 250 skills & plugins… (press /)" autocomplete="off">
+    <select id="kind"><option value="">all kinds</option><option>skill</option><option>plugin</option></select>
+    <select id="cat"><option value="">all categories</option></select>
+  </div>
   <div class="grid" id="grid"></div>
+  <p id="empty" style="display:none;color:var(--muted);margin-top:24px">Nothing matches. Clear a filter.</p>
 </main>
 <script>
 const DATA = __DATA__;
@@ -159,7 +170,24 @@ function draw(list){
   document.getElementById('sub').textContent =
     `${s} skills · ${list.length - s} plugins — click a card for full details`;
 }
-draw(DATA.map((e,i)=>[e,i]));
+const q = document.getElementById('q'), kindSel = document.getElementById('kind'), catSel = document.getElementById('cat');
+[...new Set(DATA.map(e => e.category))].sort().forEach(c => catSel.add(new Option(c)));
+function apply(){
+  const term = q.value.trim().toLowerCase();
+  const list = DATA.map((e,i)=>[e,i]).filter(([e]) =>
+    (!kindSel.value || e.kind === kindSel.value) &&
+    (!catSel.value || e.category === catSel.value) &&
+    (!term || (e.name + ' ' + e.desc + ' ' + e.source).toLowerCase().includes(term)));
+  draw(list);
+  document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+}
+q.addEventListener('input', apply);
+kindSel.addEventListener('change', apply);
+catSel.addEventListener('change', apply);
+document.addEventListener('keydown', ev => {
+  if (ev.key === '/' && document.activeElement !== q) { ev.preventDefault(); q.focus(); }
+});
+apply();
 </script>
 </body>
 </html>"""
