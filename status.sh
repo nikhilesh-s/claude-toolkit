@@ -43,6 +43,17 @@ else
 fi
 
 echo
+echo "${bold}SERENA${off}"
+flag=$(jq -r '.enabledPlugins["zeroize-audit@trailofbits"] | if . == null then "unset" else tostring end' "$HOME/.claude/settings.json" 2>/dev/null)
+if [ "$flag" = "false" ]; then
+  echo "  $warn deactivated (zeroize-audit plugin flag off) — flip to true in settings.json to restore"
+elif pgrep -f "serena start-mcp-server" >/dev/null 2>&1; then
+  echo "  $ok running"
+else
+  echo "  $ok enabled, not running (starts on demand)"
+fi
+
+echo
 echo "${bold}MCP${off}"
 if claude mcp list 2>/dev/null | grep -q "omniroute"; then
   echo "  $ok omniroute registered"
