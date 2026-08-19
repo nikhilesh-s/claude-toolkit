@@ -147,8 +147,7 @@ TEMPLATE = r"""<!doctype html>
            border: 0; border-radius: 8px; font-size: 18px; width: 32px; height: 32px; cursor: pointer; }
   #detail h2 { font-family: ui-monospace, Menlo, monospace; font-size: 20px; margin-bottom: 4px; }
   #detail .src { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
-  #detail .lead { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px;
-                  color: var(--muted); margin-bottom: 18px; }
+  #detail .lead { color: var(--muted); margin-bottom: 18px; }
   .md h1, .md h2, .md h3 { margin: 18px 0 6px; font-size: 16px; }
   .md h1 { font-size: 18px; }
   .md p, .md ul, .md ol { margin: 8px 0; }
@@ -200,7 +199,7 @@ function draw(list){
   grid.innerHTML = list.map(([e,i]) => card(e,i)).join('');
   const s = list.filter(([e]) => e.kind==='skill').length;
   document.getElementById('sub').textContent =
-    `${s} skills · ${list.length - s} plugins — click a card for full details`;
+    `${s} skills · ${list.length - s} plugins. Click a card for full details.`;
 }
 const q = document.getElementById('q'), kindSel = document.getElementById('kind'), catSel = document.getElementById('cat');
 const cats = [...new Set(DATA.map(e => e.category))].sort();
@@ -274,7 +273,7 @@ function openDetail(i){
   detail.innerHTML = `<h2>${esc(e.name)}</h2>
     <div class="src">${e.kind} · ${esc(e.category)} · source: ${esc(e.source)}</div>
     <div class="lead">${esc(e.desc)}</div>
-    <div class="md">${e.body ? mdLite(e.body) : '<p>Plugin — full docs live in the plugin package; this one-liner is the indexed description.</p>'}</div>`;
+    <div class="md">${e.body ? mdLite(e.body) : '<p>Plugin. Full docs live in the plugin package; this one-liner is the indexed description.</p>'}</div>`;
   overlay.hidden = false;
   document.getElementById('panel').scrollTop = 0;
 }
