@@ -81,7 +81,7 @@ def collect():
 
 def main():
     entries = collect()
-    data = json.dumps(entries, ensure_ascii=False)
+    data = json.dumps(entries, ensure_ascii=False).replace("</", "<\\/")
     html = render(data, entries)
     open(OUT, "w", encoding="utf-8").write(html)
     n_s = sum(1 for e in entries if e["kind"] == "skill")
