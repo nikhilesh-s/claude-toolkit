@@ -241,7 +241,7 @@ over the built-in ones, once loaded:
 
 ---
 
-## All skills (175)
+## All skills (177)
 
 Every skill in `skills/`, grouped by what it's for — machine-generated from each `SKILL.md`'s frontmatter. Regenerate after adding or removing a skill:
 ```bash
@@ -251,7 +251,7 @@ uv run python scripts/categorize_skills.py            # prints the replacement s
 It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale snapshot — a new skill shows up as "uncategorized" in `--check` rather than silently missing from this list. `ste-writing` and `task-observer` also have full write-ups above; `humanizer` moved from a raw skill here to the `humanizer@humanizer` plugin once its real source (`blader/humanizer`) was confirmed. Same symlink convention as everything else: real files live in `skills/<name>/`, `~/.claude/skills/<name>` is a symlink — confirm with `./status.sh`. Categories are one judgment call per skill, not an upstream standard.
 
 - [Core & Meta Skills](#core--meta-skills) (3)
-- [Developer & Agent Tooling](#developer--agent-tooling) (9)
+- [Developer & Agent Tooling](#developer--agent-tooling) (11)
 - [Security & Pentesting](#security--pentesting) (1)
 - [Documents, Slides & Reports](#documents-slides--reports) (10)
 - [Data Visualization & Graphics](#data-visualization--graphics) (8)
@@ -279,6 +279,8 @@ It reads `skills/*/SKILL.md` directly, so it's always ground truth, not a stale 
 
 | Skill | Source | Description |
 |---|---|---|
+| `ai-vibe-coding-check` | written for this repo from Instagram reel (aj.on.ai), 2026-08-19 | Detect and fix the visual/copy tells that make a site look AI-generated ("vibe-coded"). Scans code and rendered pages for 30 kn... |
+| `final-check` | written for this repo from Instagram reels (millee.md + yatesvids), 2026-08-19 | Pre-launch audit for a web app or site. Runs a 40-point checklist — 20 security items (secrets, auth, injection, headers, depen... |
 | `find-skills` | vercel-labs/skills (find-skills) | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a s... |
 | `finding-duplicate-functions` | obra/superpowers-lab | Use when auditing a codebase for semantic duplication - functions that do the same thing but have different names or implementa... |
 | `get-available-resources` | K-Dense-AI/claude-scientific-skills | Detect host inventory and effective CPU, memory, disk, scheduler, container, and accelerator limits when a user asks for resour... |
