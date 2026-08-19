@@ -643,6 +643,12 @@ The rest are real CLI tools and apps, not Claude skills:
 | `MoneyPrinterTurbo` | cloned to `~/Developer/MoneyPrinterTurbo` | Full app: topic/keyword → AI-generated short video. Needs your own LLM + TTS API keys in its config before it runs — not set up |
 | `obsidian-wiki` | cloned to `~/Developer/obsidian-wiki` | 40-skill framework for building a personal "digital brain" in Obsidian, incl. its own bundled `skill-creator`. Has a `setup.sh` and expects a vault — not run, this is its own project to configure deliberately, not a drop-in skill |
 
+**2026-08-19 additions.** Five more reels produced the `final-check` and
+`ai-vibe-coding-check` skills (see their sections above) plus two plan docs in
+`plans/` (second-brain, resolve-fx). Extraction used the watch-skill MCP server
+(frame OCR — none of the reels had captions), reels: millee.md, yatesvids,
+aj.on.ai, metakaihos, tewiemakesmedia.
+
 ## What runs on its own, and what needs setup
 
 This table tracks two things. First, what starts by itself, with no action from you. Second,
