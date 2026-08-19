@@ -15,7 +15,7 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "scripts"))
-from categorize_skills import CATEGORIES, SOURCES, DEFAULT_SOURCE  # noqa: E402
+from categorize_skills import CATEGORIES, SOURCE_OVERRIDES as SOURCES, DEFAULT_SOURCE  # noqa: E402
 
 SKILLS_DIR = os.path.join(REPO, "skills")
 TSV = os.path.join(REPO, "scripts", "skill_index.tsv")
