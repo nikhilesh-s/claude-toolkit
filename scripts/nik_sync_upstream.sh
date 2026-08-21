@@ -63,11 +63,28 @@ if [ "$(git config --get merge.ours.driver || true)" != "true" ]; then
   git config merge.ours.driver true
 fi
 
+# Upstream commits skill symlinks as absolute paths under /Users/arnavkakani,
+# which are dead on this machine; ours are relative and portable. Those collide
+# on every merge, so resolve them in our favour automatically. Returns the
+# number of conflicts left unresolved.
+resolve_arnav_symlink_conflicts() {
+  local f target
+  for f in $(git diff --name-only --diff-filter=U); do
+    target="$(git show ":3:$f" 2>/dev/null || true)"
+    case "$target" in
+      /Users/arnavkakani/*)
+        git checkout --ours -- "$f" 2>/dev/null && git add -- "$f" 2>/dev/null
+        ;;
+    esac
+  done
+  git diff --name-only --diff-filter=U | grep -c . || true
+}
+
 # --- 1. fetch ----------------------------------------------------------------
 info "Fetching $UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
 git fetch "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH"
 
-BASE="$(git merge-base HEAD "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH")"
+BASE="$(git merge-base HEAD "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH" 2>/dev/null || true)"
 HEAD_UP="$(git rev-parse "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH")"
 
 if [ "$BASE" = "$HEAD_UP" ]; then
@@ -96,12 +113,17 @@ else
 
   # --- 3. merge --------------------------------------------------------------
   info "Merging $UPSTREAM_REMOTE/$UPSTREAM_BRANCH into $BRANCH"
-  if ! git merge --no-edit "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH"; then
+  if ! git merge --no-edit --allow-unrelated-histories "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH"; then
+    if [ "$(resolve_arnav_symlink_conflicts)" = "0" ]; then
+      info "Auto-resolved upstream absolute-symlink conflicts, keeping ours"
+      git commit --no-edit
+    else
     echo >&2
     echo "Merge stopped on a conflict. README.md should NOT be among them." >&2
     echo "Resolve, 'git add' the files, then run 'git commit' and re-run this script." >&2
     git diff --name-only --diff-filter=U >&2
     exit 1
+    fi
   fi
 fi
 
