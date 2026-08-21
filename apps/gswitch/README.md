@@ -193,10 +193,15 @@ gswitch logs 100   # recent server output
 gswitch menubar    # bring the GS menu bar item back
 ```
 
-Menu bar item vanished: a Cmd-drag off the menu bar persists a position and
-visibility preference, which can leave the item hidden — parked under the notch,
-for instance. `gswitch menubar` deletes that preference and relaunches the app so
-the item returns at its default position.
+Menu bar item vanished: usually ControlCenter, which owns the menu bar, has
+stopped allocating slots to new status items — the app logs a valid button whose
+window frame stays zero-height (`winFrame=(0,0,63,0)` in
+`~/.gswitch/menubar.log`). `killall ControlCenter` restores it, and also clears
+ghost items left by force-killed instances. `gswitch menubar` does that, plus
+deletes the app's saved position preference in case a Cmd-drag parked the item
+somewhere invisible. Note that reinstalling, changing the bundle identifier, or
+switching between `launchctl` and `open` do *not* help — they were all ruled out
+on 2026-08-20.
 
 ChatGPT can't reach the connector but the menu bar says it's running: check
 Tailscale is actually connected (`tailscale status`; reconnect with
