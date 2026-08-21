@@ -3,7 +3,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 APP="$HERE/GSwitchBar.app"
-PLIST="$HOME/Library/LaunchAgents/com.nik.gswitchbar.plist"
+PLIST="$HOME/Library/LaunchAgents/com.nik.gswitchmenu.plist"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"

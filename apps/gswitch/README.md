@@ -28,7 +28,7 @@ when it is not. Clicking it opens a menu with: start / stop / restart, copy the
 ChatGPT connector URL, run the setup check, and open the log. It refreshes its
 icon every 60 seconds, and every action shells out to the `gswitch` script so
 there is a single source of truth. A LaunchAgent
-(`com.nik.gswitchbar`) starts it at login.
+(`com.nik.gswitchmenu`) starts it at login.
 
 Tools exposed: **45** (the `extended` tier), covering Gmail
 (search/read/send/draft/labels/filters), Drive
