@@ -57,6 +57,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+        // A Cmd-drag off the menu bar sets isVisible=false and macOS remembers it,
+        // so force it back on every launch and refresh.
+        statusItem.isVisible = true
         logLine("statusItem created, button=\(statusItem.button != nil)")
         refreshIcon()
         Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in self.refreshIcon() }
@@ -68,6 +71,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // otherwise have zero width and be invisible while the app looks healthy.
     func refreshIcon() {
         let up = isUp()
+        statusItem.isVisible = true
         guard let b = statusItem.button else { logLine("refreshIcon: no button"); return }
         let name = up ? "externaldrive.badge.checkmark" : "externaldrive.badge.xmark"
         let img = NSImage(systemSymbolName: name, accessibilityDescription: "GSwitch")

@@ -130,6 +130,23 @@ cmd_status() {
     local u; u="$(connector_url)"; [ -n "$u" ] && echo "url:    $u"
 }
 
+# Cmd-dragging the status item off the menu bar persists a position/visibility
+# preference that can leave it hidden (e.g. parked under the notch). Wipe that
+# preference and relaunch so the item returns at its default position.
+cmd_menubar() {
+    local label="com.nik.gswitchbar"
+    local plist="$HOME/Library/LaunchAgents/$label.plist"
+    [ -f "$plist" ] || { echo "menu bar app not installed; run ./setup.sh"; exit 1; }
+    launchctl bootout "gui/$(id -u)/$label" 2>/dev/null
+    sleep 1
+    rm -f "$HOME/Library/Preferences/$label.plist"
+    killall cfprefsd 2>/dev/null
+    sleep 1
+    launchctl bootstrap "gui/$(id -u)" "$plist" || { echo "relaunch failed"; exit 1; }
+    sleep 3
+    echo "menu bar item reset; look for GS near the right of the menu bar"
+}
+
 cmd_url() {
     local u; u="$(connector_url)"
     [ -n "$u" ] || { echo "no Tailscale hostname yet — sign in to Tailscale"; exit 1; }
@@ -147,6 +164,7 @@ case "${1:-status}" in
     restart) cmd_restart ;;
     status)  cmd_status ;;
     url)     cmd_url ;;
+    menubar) cmd_menubar ;;
     logs)    tail -n "${2:-50}" "$LOG" ;;
-    *) echo "usage: gswitch {doctor|config|funnel|install|start|stop|restart|status|url|logs}"; exit 1 ;;
+    *) echo "usage: gswitch {doctor|config|funnel|install|start|stop|restart|status|url|logs|menubar}"; exit 1 ;;
 esac
