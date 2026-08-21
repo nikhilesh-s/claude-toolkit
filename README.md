@@ -193,6 +193,7 @@ Checked live on 2026-08-16.
 | Thing | State | Port | To start it |
 |---|---|---|---|
 | Upstream sync (launchd) | **active**, 11:00 + 23:00 | — | see [Daily automatic sync](#daily-automatic-sync) |
+| gswitch connector (launchd) | **active** | 8765 | see [gswitch](#gswitch-a-second-google-account-for-chatgpt) |
 | claude-mem viewer | **up** | 37702 | starts with the plugin |
 | claude-mem worker | **down** | 37701 | `npx claude-mem start` |
 | claude-mem cloud sync | **blocked** | — | Desktop OAuth token expired; re-login via Claude Desktop |
@@ -205,6 +206,34 @@ Checked live on 2026-08-16.
 in both config dirs) have no `hooks` block. In particular, gstack's `./setup` has **not** been
 run, so the `Stop` hook upstream's README warns about does not exist here. That is the safe
 state. Leave it unless you change it deliberately.
+
+---
+
+## gswitch: a second Google account for ChatGPT
+
+ChatGPT allows one native Google connection per account, so only one of Nik's two
+Google accounts can be reached that way. `apps/gswitch/` runs
+[taylorwilsdon/workspace-mcp](https://github.com/taylorwilsdon/google_workspace_mcp)
+locally on port 8765, published over Tailscale Funnel at a permanent HTTPS
+address, and added to ChatGPT as a Developer Mode custom connector. It exposes 45
+tools across Gmail, Drive, Calendar and Docs, read **and** write, including doc
+comments and highlighting.
+
+A Swift menu bar item (`GS`) starts and stops it, which is what selects the account:
+
+| Menu bar | ChatGPT reaches |
+|---|---|
+| `GS` | the **college** account, through gswitch |
+| `GS✗` | the **personal** account, through ChatGPT's built-in Google connector |
+
+Stopping the connector makes it unreachable, so ChatGPT falls back to the built-in
+one — no naming a connector in chat. Start a new chat after flipping, since ChatGPT
+binds a connector for the life of a conversation.
+
+Two launchd jobs: `com.nik.gswitch` (the server) and `com.nik.gswitchmenu` (the menu
+bar item). Setup, troubleshooting and the OAuth details are in
+[apps/gswitch/README.md](apps/gswitch/README.md); `gswitch doctor` reports what is
+missing.
 
 ---
 
