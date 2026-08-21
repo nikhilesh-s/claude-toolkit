@@ -190,7 +190,18 @@ host that doesn't sleep; nothing else about the setup changes.
 ```bash
 gswitch doctor     # what's missing
 gswitch logs 100   # recent server output
+gswitch menubar    # bring the GS menu bar item back
 ```
+
+Menu bar item vanished: a Cmd-drag off the menu bar persists a position and
+visibility preference, which can leave the item hidden — parked under the notch,
+for instance. `gswitch menubar` deletes that preference and relaunches the app so
+the item returns at its default position.
+
+ChatGPT can't reach the connector but the menu bar says it's running: check
+Tailscale is actually connected (`tailscale status`; reconnect with
+`tailscale up`). The funnel configuration survives Tailscale being stopped, so
+`gswitch doctor` reporting `funnel: NOT SERVING` points here.
 
 Server won't start: check `gswitch logs` for a Google OAuth error, usually a
 redirect-URI mismatch — the URI in Google Cloud must match `gswitch url` exactly,
