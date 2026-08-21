@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.nik.gswitch</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__UVX__</string>
+		<string>workspace-mcp</string>
+		<string>--transport</string>
+		<string>streamable-http</string>
+		<string>--tool-tier</string>
+		<string>__TIER__</string>
+		<string>--tools</string>
+__SERVICES_LINES__
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:__HOME__/.local/bin</string>
+		<key>HOME</key>
+		<string>__HOME__</string>
+		<key>MCP_ENABLE_OAUTH21</key>
+		<string>true</string>
+		<key>WORKSPACE_MCP_PORT</key>
+		<string>__PORT__</string>
+		<key>WORKSPACE_EXTERNAL_URL</key>
+		<string>__EXTURL__</string>
+		<key>GOOGLE_OAUTH_REDIRECT_URI</key>
+		<string>__EXTURL__/oauth2callback</string>
+		<key>GOOGLE_OAUTH_CLIENT_ID</key>
+		<string>__CLIENT_ID__</string>
+		<key>GOOGLE_OAUTH_CLIENT_SECRET</key>
+		<string>__CLIENT_SECRET__</string>
+		<key>GOOGLE_MCP_CREDENTIALS_DIR</key>
+		<string>__HOME__/.gswitch/creds</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>StandardOutPath</key>
+	<string>__HOME__/.gswitch/gswitch.log</string>
+	<key>StandardErrorPath</key>
+	<string>__HOME__/.gswitch/gswitch.log</string>
+</dict>
+</plist>
