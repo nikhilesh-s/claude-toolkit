@@ -16,7 +16,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST_EOF
 <dict>
 	<key>CFBundleName</key><string>GSwitchBar</string>
 	<key>CFBundleDisplayName</key><string>GSwitch</string>
-	<key>CFBundleIdentifier</key><string>com.nik.gswitchbar</string>
+	<key>CFBundleIdentifier</key><string>com.nik.gswitchmenu</string>
 	<key>CFBundleExecutable</key><string>GSwitchBar</string>
 	<key>CFBundleVersion</key><string>1.0</string>
 	<key>CFBundleShortVersionString</key><string>1.0</string>
@@ -35,7 +35,7 @@ cat > "$PLIST" <<PLIST_EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Label</key><string>com.nik.gswitchbar</string>
+	<key>Label</key><string>com.nik.gswitchmenu</string>
 	<key>ProgramArguments</key>
 	<array><string>$APP/Contents/MacOS/GSwitchBar</string></array>
 	<key>RunAtLoad</key><true/>
