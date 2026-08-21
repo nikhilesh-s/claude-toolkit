@@ -139,7 +139,7 @@ if ! git fetch --quiet upstream main 2>>"$LOG"; then
 fi
 
 BEFORE="$(git rev-parse HEAD)"
-BASE="$(git merge-base HEAD upstream/main)"
+BASE="$(git merge-base HEAD upstream/main 2>/dev/null || true)"
 UP="$(git rev-parse upstream/main)"
 
 if [ "$BASE" = "$UP" ]; then
@@ -195,14 +195,36 @@ if [ "$DRY_RUN" = 1 ]; then
   finish "DRY RUN" "nothing changed" 0
 fi
 
+# Upstream commits skill symlinks as absolute paths under /Users/arnavkakani,
+# which are dead on this machine; ours are relative and portable. Those collide
+# on every merge, so resolve them in our favour automatically. Returns the
+# number of conflicts left unresolved.
+resolve_arnav_symlink_conflicts() {
+  local f target
+  for f in $(git diff --name-only --diff-filter=U); do
+    target="$(git show ":3:$f" 2>/dev/null || true)"
+    case "$target" in
+      /Users/arnavkakani/*)
+        git checkout --ours -- "$f" 2>/dev/null && git add -- "$f" 2>/dev/null
+        ;;
+    esac
+  done
+  git diff --name-only --diff-filter=U | grep -c . || true
+}
+
 # --- merge ------------------------------------------------------------------
 git config merge.ours.driver true
 
-if ! git merge --no-edit upstream/main >>"$LOG" 2>&1; then
+if ! git merge --no-edit --allow-unrelated-histories upstream/main >>"$LOG" 2>&1; then
+  if [ "$(resolve_arnav_symlink_conflicts)" = "0" ]; then
+    log "auto-resolved upstream absolute-symlink conflicts, keeping ours"
+    git commit --no-edit >>"$LOG" 2>&1
+  else
   log "merge conflict — aborting and restoring $BEFORE"
   git merge --abort >>"$LOG" 2>&1 || git reset --hard "$BEFORE" >>"$LOG" 2>&1
   notify "Claude toolkit sync needs you" "Upstream merge conflicted. Repo restored. Run the sync by hand."
   finish "CONFLICT" "merge aborted, repo restored to $BEFORE — resolve by hand with ./scripts/nik_sync_upstream.sh" 1
+  fi
 fi
 
 # --- post-merge repair ------------------------------------------------------
