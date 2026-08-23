@@ -4,6 +4,7 @@ set -euo pipefail
 BASE="$HOME/.media-unlocker"
 VENV="$BASE/venv"
 PORT="${MEDIAUNLOCK_PORT:-8770}"
+FUNNEL_PORT="${MEDIAUNLOCK_FUNNEL_PORT:-8443}"
 PLIST="$HOME/Library/LaunchAgents/com.nik.mediaunlock.plist"
 LOG="$BASE/server.log"
 ERR="$BASE/server.err.log"
@@ -48,7 +49,7 @@ case "$cmd" in
     if command -v tailscale >/dev/null 2>&1; then
       host="$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("Self",{}).get("DNSName","").rstrip("."))' 2>/dev/null || true)"
       if [[ -n "$host" ]]; then
-        echo "https://${host}/mcp"
+        echo "https://${host}:${FUNNEL_PORT}/mcp"
       else
         echo "Tailscale DNS name unavailable" >&2; exit 1
       fi
@@ -57,7 +58,7 @@ case "$cmd" in
     fi
     ;;
   funnel)
-    tailscale funnel --bg "http://127.0.0.1:${PORT}"
+    tailscale funnel --https="${FUNNEL_PORT}" --bg "http://127.0.0.1:${PORT}"
     tailscale funnel status
     ;;
   doctor)
@@ -72,6 +73,8 @@ case "$cmd" in
     done
     if [[ -x "$VENV/bin/python" ]]; then echo "ok   venv: $VENV"; else echo "MISS venv"; fail=1; fi
     if [[ -f "$PLIST" ]]; then echo "ok   launchagent: $PLIST"; else echo "MISS launchagent"; fail=1; fi
+    echo "local port: ${PORT}"
+    echo "funnel port: ${FUNNEL_PORT} (kept separate from other Funnel services)"
     echo "browser cookies: ${MEDIAUNLOCK_BROWSER:-safari} (override with MEDIAUNLOCK_BROWSER=chrome, firefox, etc.)"
     if command -v tailscale >/dev/null 2>&1; then tailscale funnel status 2>/dev/null || true; fi
     exit "$fail"
