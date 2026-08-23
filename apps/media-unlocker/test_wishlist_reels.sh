@@ -10,6 +10,8 @@ URLS=(
   'https://www.instagram.com/reel/Dbb3EHnvOXg/?igsi=NTc4MTIwNjQ2YQ=='
   'https://www.instagram.com/reel/DbYh5wmS21p/?igsi=NTc4MTIwNjQ2YQ=='
   'https://www.instagram.com/reel/Da-PFaqJBOZ/?igsi=NTc4MTIwNjQ2YQ=='
+  'https://www.instagram.com/reel/DZGtSP6x4vc/?igsi=NTc4MTIwNjQ2YQ=='
+  'https://www.instagram.com/reel/Db8ewR9uoJN/?igsi=NTc4MTIwNjQ2YQ=='
 )
 
 printf 'Testing wishlist Instagram reels with browser cookies: %s\n\n' "$BROWSER"
