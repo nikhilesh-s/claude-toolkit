@@ -52,16 +52,34 @@ mediaunlock url
 
 In ChatGPT web, add the printed `/mcp` URL as a custom connector named **Media Unlocker**. Keep the connector URL private.
 
-## Test the Instagram Reel from the wishlist chat
+## Wishlist Reel regression set
+
+These two Reels are the current real-world acceptance tests for the College & Dorm Wishlist flow:
+
+```text
+https://www.instagram.com/reel/DalkeLOBAmg/?igsi=NTc4MTIwNjQ2YQ==
+https://www.instagram.com/reel/DbHRk63PlaC/?igsi=NTc4MTIwNjQ2YQ==
+```
+
+Test both at once:
+
+```bash
+cd ~/claude-toolkit/apps/media-unlocker
+chmod +x test_wishlist_reels.sh
+./test_wishlist_reels.sh
+```
+
+Or test one directly:
 
 ```bash
 mediaunlock test 'https://www.instagram.com/reel/DalkeLOBAmg/?igsi=NTc4MTIwNjQ2YQ=='
+mediaunlock test 'https://www.instagram.com/reel/DbHRk63PlaC/?igsi=NTc4MTIwNjQ2YQ=='
 ```
 
 If Safari is not the browser where Instagram is logged in:
 
 ```bash
-MEDIAUNLOCK_BROWSER=chrome mediaunlock test 'https://www.instagram.com/reel/DalkeLOBAmg/?igsi=NTc4MTIwNjQ2YQ=='
+MEDIAUNLOCK_BROWSER=chrome ./test_wishlist_reels.sh
 ```
 
 If macOS blocks browser-cookie access, grant the terminal/agent Full Disk Access or export an Instagram cookies file and adapt the gallery-dl invocation. Do **not** commit cookies, tokens, or account credentials to this repo.
