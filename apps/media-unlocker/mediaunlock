@@ -1,0 +1,91 @@
+#!/bin/bash
+set -euo pipefail
+
+BASE="$HOME/.media-unlocker"
+VENV="$BASE/venv"
+PORT="${MEDIAUNLOCK_PORT:-8770}"
+FUNNEL_PORT="${MEDIAUNLOCK_FUNNEL_PORT:-8443}"
+PLIST="$HOME/Library/LaunchAgents/com.nik.mediaunlock.plist"
+LOG="$BASE/server.log"
+ERR="$BASE/server.err.log"
+
+mkdir -p "$BASE"
+
+cmd="${1:-status}"
+shift || true
+
+server_up() {
+  /usr/bin/nc -z -w 2 127.0.0.1 "$PORT" >/dev/null 2>&1
+}
+
+case "$cmd" in
+  start)
+    launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl kickstart -k "gui/$(id -u)/com.nik.mediaunlock"
+    sleep 1
+    "$0" status
+    ;;
+  stop)
+    launchctl bootout "gui/$(id -u)/com.nik.mediaunlock" 2>/dev/null || true
+    ;;
+  restart)
+    launchctl bootout "gui/$(id -u)/com.nik.mediaunlock" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$PLIST"
+    sleep 1
+    "$0" status
+    ;;
+  status)
+    if server_up; then
+      echo "media-unlocker: running on 127.0.0.1:${PORT}"
+    else
+      echo "media-unlocker: not reachable"
+      exit 1
+    fi
+    ;;
+  logs)
+    n="${1:-100}"
+    tail -n "$n" "$LOG" "$ERR" 2>/dev/null || true
+    ;;
+  url)
+    if command -v tailscale >/dev/null 2>&1; then
+      host="$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("Self",{}).get("DNSName","").rstrip("."))' 2>/dev/null || true)"
+      if [[ -n "$host" ]]; then
+        echo "https://${host}:${FUNNEL_PORT}/mcp"
+      else
+        echo "Tailscale DNS name unavailable" >&2; exit 1
+      fi
+    else
+      echo "tailscale not installed" >&2; exit 1
+    fi
+    ;;
+  funnel)
+    tailscale funnel --https="${FUNNEL_PORT}" --bg "http://127.0.0.1:${PORT}"
+    tailscale funnel status
+    ;;
+  doctor)
+    fail=0
+    for bin in python3 ffmpeg ffprobe gallery-dl yt-dlp tailscale; do
+      if command -v "$bin" >/dev/null 2>&1; then
+        echo "ok   $bin: $(command -v "$bin")"
+      else
+        echo "MISS $bin"
+        fail=1
+      fi
+    done
+    if [[ -x "$VENV/bin/python" ]]; then echo "ok   venv: $VENV"; else echo "MISS venv"; fail=1; fi
+    if [[ -f "$PLIST" ]]; then echo "ok   launchagent: $PLIST"; else echo "MISS launchagent"; fail=1; fi
+    echo "local port: ${PORT}"
+    echo "funnel port: ${FUNNEL_PORT} (kept separate from other Funnel services)"
+    echo "browser cookies: ${MEDIAUNLOCK_BROWSER:-safari} (override with MEDIAUNLOCK_BROWSER=chrome, firefox, etc.)"
+    if command -v tailscale >/dev/null 2>&1; then tailscale funnel status 2>/dev/null || true; fi
+    exit "$fail"
+    ;;
+  test)
+    url="${1:?usage: mediaunlock test URL}"
+    browser="${MEDIAUNLOCK_BROWSER:-safari}"
+    gallery-dl --no-input --simulate --cookies-from-browser "$browser" "$url"
+    ;;
+  *)
+    echo "usage: mediaunlock {start|stop|restart|status|logs [N]|url|funnel|doctor|test URL}" >&2
+    exit 2
+    ;;
+esac
