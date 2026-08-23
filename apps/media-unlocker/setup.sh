@@ -7,6 +7,14 @@ VENV="$BASE/venv"
 BIN="$HOME/.local/bin"
 PLIST="$HOME/Library/LaunchAgents/com.nik.mediaunlock.plist"
 PORT="${MEDIAUNLOCK_PORT:-8770}"
+TAILSCALE_HOST="${MEDIAUNLOCK_TAILSCALE_HOST:-}"
+
+if [ -z "$TAILSCALE_HOST" ] && command -v tailscale >/dev/null 2>&1; then
+  TAILSCALE_HOST="$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Self",{}).get("DNSName","").rstrip("."))' 2>/dev/null || true)"
+fi
+
+ALLOWED_HOSTS="127.0.0.1:*,localhost:*"
+[ -z "$TAILSCALE_HOST" ] || ALLOWED_HOSTS="$ALLOWED_HOSTS,$TAILSCALE_HOST:8443,$TAILSCALE_HOST"
 
 mkdir -p "$BASE" "$BIN" "$HOME/Library/LaunchAgents"
 
@@ -34,6 +42,7 @@ src = src.replace("__PYTHON__", "$VENV/bin/python")
 src = src.replace("__SERVER__", "$HERE/server.py")
 src = src.replace("__HOME__", str(Path.home()))
 src = src.replace("__PORT__", "$PORT")
+src = src.replace("__ALLOWED_HOSTS__", "$ALLOWED_HOSTS")
 Path("$PLIST").write_text(src)
 PY
 
