@@ -22,6 +22,7 @@ brew list yt-dlp >/dev/null 2>&1 || brew install yt-dlp
 python3 -m venv "$VENV"
 "$VENV/bin/pip" install --upgrade pip
 "$VENV/bin/pip" install -r "$HERE/requirements.txt"
+"$VENV/bin/python" "$HERE/smoke_test.py"
 
 cp "$HERE/mediaunlock" "$BIN/mediaunlock"
 chmod +x "$BIN/mediaunlock"
