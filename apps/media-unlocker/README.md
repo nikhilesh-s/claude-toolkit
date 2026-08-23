@@ -25,7 +25,7 @@ The public Cobalt API is deliberately **not** called: Cobalt's own API docs say 
 
 ```bash
 cd ~/claude-toolkit/apps/media-unlocker
-./setup.sh
+bash setup.sh
 mediaunlock doctor
 ```
 
