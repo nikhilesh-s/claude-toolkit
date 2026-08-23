@@ -6,7 +6,7 @@ It is built for the College & Dorm Wishlist workflow: paste an Instagram Reel/Ti
 
 ## Resolver chain
 
-1. **gallery-dl** first (best broad social-media coverage; uses your logged-in browser cookies for Instagram).
+1. **gallery-dl** first. It supports Instagram Reels and can reuse a logged-in browser session through browser cookies.
 2. **yt-dlp** fallback.
 3. Optional **self-hosted Cobalt** fallback via `MEDIAUNLOCK_COBALT_URL`.
 4. **FFmpeg** extracts representative frames and builds one contact sheet.
@@ -19,7 +19,21 @@ The public Cobalt API is deliberately **not** called: Cobalt's own API docs say 
 - Media stays on your Mac.
 - ChatGPT gets a visual preview instead of only a transcript.
 - Instagram authentication can come from Safari/Chrome browser cookies rather than storing your Instagram password.
-- Works as a normal ChatGPT Developer Mode custom connector over the same Tailscale Funnel pattern already used by `gswitch`.
+- Works as a normal ChatGPT custom MCP connector over the same Tailscale pattern already used by your local connectors.
+
+## Network layout
+
+The local MCP server listens on `127.0.0.1:8770`.
+
+Its public Tailscale Funnel uses HTTPS **8443** by default, so it does not overwrite another Funnel already using HTTPS 443. Tailscale officially allows Funnel on 443, 8443, and 10000.
+
+The resulting connector URL is:
+
+```text
+https://<your-tailnet-hostname>:8443/mcp
+```
+
+Override the public port with `MEDIAUNLOCK_FUNNEL_PORT` if needed.
 
 ## Install on Nik's Mac
 
@@ -36,7 +50,7 @@ mediaunlock funnel
 mediaunlock url
 ```
 
-In ChatGPT web: Developer mode → Plugins → `+` → Server URL → paste the `/mcp` URL. Name it **Media Unlocker**. No OAuth is needed because this server is yours; keep the connector URL private.
+In ChatGPT web, add the printed `/mcp` URL as a custom connector named **Media Unlocker**. Keep the connector URL private.
 
 ## Test the Instagram Reel from the wishlist chat
 
@@ -68,6 +82,12 @@ Returns cached resolver metadata.
 Add this to the wishlist workflow instructions:
 
 > When I send a social-media or media URL for the College & Dorm Wishlist, use Media Unlocker first. Call `unlock_media`, then inspect `get_contact_sheet`. Identify only what the media supports. If the exact product/model is uncertain, search the web using visible brand/model clues. Then update the College & Dorm Wish List Google Doc, preserving the original media URL as the source link.
+
+## Known compatibility checkpoint
+
+The Python MCP SDK has an open 2026 issue involving image tool results in **stateless** Streamable HTTP mode. The current connector deliberately keeps the first implementation simple so the real ChatGPT client can be tested on your Mac. If `get_contact_sheet` is the only failing step while text tools work, the resolver itself is fine; the next patch should switch the image-return layer rather than changing gallery-dl/FFmpeg.
+
+This is why the branch should be tested before merging into the main toolkit branch.
 
 ## Security / limits
 
