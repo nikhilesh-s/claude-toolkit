@@ -44,13 +44,15 @@ Do not replace this stack just because another library exists.
 
 ## Real acceptance URLs
 
-All four must be treated as regression cases:
+All six must be treated as regression cases:
 
 ```text
 https://www.instagram.com/reel/DalkeLOBAmg/?igsi=NTc4MTIwNjQ2YQ==
 https://www.instagram.com/reel/DbHRk63PlaC/?igsi=NTc4MTIwNjQ2YQ==
 https://www.instagram.com/reel/DaVOALgzEMc/?igsi=NTc4MTIwNjQ2YQ==
 https://www.instagram.com/reel/Dbb3EHnvOXg/?igsi=NTc4MTIwNjQ2YQ==
+https://www.instagram.com/reel/DbYh5wmS21p/?igsi=NTc4MTIwNjQ2YQ==
+https://www.instagram.com/reel/Da-PFaqJBOZ/?igsi=NTc4MTIwNjQ2YQ==
 ```
 
 ## Execution order
