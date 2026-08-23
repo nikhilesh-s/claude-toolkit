@@ -14,8 +14,7 @@ cmd="${1:-status}"
 shift || true
 
 server_up() {
-  /usr/bin/curl -fsS --max-time 2 "http://127.0.0.1:${PORT}/mcp" >/dev/null 2>&1 ||
-  /usr/bin/curl -fsS --max-time 2 "http://127.0.0.1:${PORT}/" >/dev/null 2>&1
+  /usr/bin/nc -z -w 2 127.0.0.1 "$PORT" >/dev/null 2>&1
 }
 
 case "$cmd" in
