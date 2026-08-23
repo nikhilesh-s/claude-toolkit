@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from mcp.server.fastmcp import FastMCP, Image
+from mcp.server.transport_security import TransportSecuritySettings
 
 APP_NAME = "media-unlocker"
 HOME = Path.home()
@@ -26,8 +27,22 @@ HOST = os.environ.get("MEDIAUNLOCK_HOST", "127.0.0.1")
 DEFAULT_BROWSER = os.environ.get("MEDIAUNLOCK_BROWSER", "safari")
 COBALT_URL = os.environ.get("MEDIAUNLOCK_COBALT_URL", "").rstrip("/")
 MAX_MEDIA_MB = int(os.environ.get("MEDIAUNLOCK_MAX_MEDIA_MB", "250"))
+MCP_ALLOWED_HOSTS = [
+    value.strip()
+    for value in os.environ.get(
+        "MEDIAUNLOCK_ALLOWED_HOSTS",
+        "127.0.0.1:*,localhost:*",
+    ).split(",")
+    if value.strip()
+]
 
-mcp = FastMCP(APP_NAME, host=HOST, port=PORT, stateless_http=True)
+mcp = FastMCP(
+    APP_NAME,
+    host=HOST,
+    port=PORT,
+    stateless_http=True,
+    transport_security=TransportSecuritySettings(allowed_hosts=MCP_ALLOWED_HOSTS),
+)
 
 
 def _run(cmd: list[str], *, timeout: int = 180) -> subprocess.CompletedProcess[str]:

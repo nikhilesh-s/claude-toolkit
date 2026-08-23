@@ -14,6 +14,7 @@
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>MEDIAUNLOCK_PORT</key><string>__PORT__</string>
     <key>MEDIAUNLOCK_BROWSER</key><string>safari</string>
+    <key>MEDIAUNLOCK_ALLOWED_HOSTS</key><string>__ALLOWED_HOSTS__</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

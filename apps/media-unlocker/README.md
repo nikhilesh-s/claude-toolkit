@@ -1,13 +1,31 @@
 # Media Unlocker
 
-Local, self-hosted MCP connector for ChatGPT that turns public social-media links into media ChatGPT can actually inspect.
+Local, self-hosted MCP connector for Claude, Claude Nebula, Codex, and ChatGPT that turns public social-media links into media an agent can actually inspect.
 
 It is built for the College & Dorm Wishlist workflow: paste an Instagram Reel/TikTok/YouTube/X/Reddit/Vimeo/Loom/Pinterest/direct-media URL into ChatGPT, let the connector resolve the media, then return a contact sheet of representative frames for visual product identification.
+
+## Supported clients
+
+- **Claude default:** local MCP at `http://127.0.0.1:8770/mcp`.
+- **Claude Nebula:** the same local MCP, registered in `~/.claude-nebula`.
+- **Codex:** the canonical `skills/media-unlocker/SKILL.md` is linked by the toolkit skill installer.
+- **ChatGPT:** the existing Tailscale Funnel exposes the MCP over HTTPS on port 8443.
+
+Register the local MCP in both Claude profiles with the supported Claude CLI:
+
+```bash
+cd ~/claude-toolkit/apps/media-unlocker
+bash setup_claude_mcp.sh
+claude mcp list
+CLAUDE_CONFIG_DIR="$HOME/.claude-nebula" claude mcp list
+```
+
+The helper is idempotent and uses only the local endpoint. Run it again after restoring a Mac or recreating either Claude profile.
 
 ## Resolver chain
 
 1. **gallery-dl** first. It supports Instagram Reels and can reuse a logged-in browser session through browser cookies.
-2. **yt-dlp** fallback.
+2. **yt-dlp** fallback. This is the verified Instagram resolver on Nik's Mac.
 3. Optional **self-hosted Cobalt** fallback via `MEDIAUNLOCK_COBALT_URL`.
 4. **FFmpeg** extracts representative frames and builds one contact sheet.
 
@@ -18,8 +36,8 @@ The public Cobalt API is deliberately **not** called: Cobalt's own API docs say 
 - Free/open-source resolver stack.
 - Media stays on your Mac.
 - ChatGPT gets a visual preview instead of only a transcript.
-- Instagram authentication can come from Safari/Chrome browser cookies rather than storing your Instagram password.
-- Works as a normal ChatGPT custom MCP connector over the same Tailscale pattern already used by your local connectors.
+- Instagram authentication comes from Dia Profile 5 (`Nikhilesh`) rather than storing an Instagram password.
+- Works as a local Claude/Claude Nebula/Codex MCP workflow and as a ChatGPT custom MCP connector over the existing Tailscale pattern.
 
 ## Network layout
 
@@ -41,6 +59,7 @@ Override the public port with `MEDIAUNLOCK_FUNNEL_PORT` if needed.
 cd ~/claude-toolkit/apps/media-unlocker
 bash setup.sh
 mediaunlock doctor
+bash setup_claude_mcp.sh
 ```
 
 Then publish it through the existing Tailscale install:
@@ -54,16 +73,9 @@ In ChatGPT web, add the printed `/mcp` URL as a custom connector named **Media U
 
 ## Wishlist Reel regression set
 
-These four Reels are the current real-world acceptance tests for the College & Dorm Wishlist flow:
+The 10 URLs in `test_wishlist_reels.sh` are the current real-world acceptance tests for the College & Dorm Wishlist flow. The verified run passed all 10 serially with yt-dlp and created all 10 contact sheets. The script is the authoritative URL manifest; keep its order and do not substitute other profiles or browsers.
 
-```text
-https://www.instagram.com/reel/DalkeLOBAmg/?igsi=NTc4MTIwNjQ2YQ==
-https://www.instagram.com/reel/DbHRk63PlaC/?igsi=NTc4MTIwNjQ2YQ==
-https://www.instagram.com/reel/DaVOALgzEMc/?igsi=NTc4MTIwNjQ2YQ==
-https://www.instagram.com/reel/Dbb3EHnvOXg/?igsi=NTc4MTIwNjQ2YQ==
-```
-
-Test all four at once:
+Test all 10 at once:
 
 ```bash
 cd ~/claude-toolkit/apps/media-unlocker
@@ -71,13 +83,7 @@ chmod +x test_wishlist_reels.sh
 ./test_wishlist_reels.sh
 ```
 
-If Safari is not the browser where Instagram is logged in:
-
-```bash
-MEDIAUNLOCK_BROWSER=chrome ./test_wishlist_reels.sh
-```
-
-If macOS blocks browser-cookie access, grant the terminal/agent Full Disk Access or export an Instagram cookies file and adapt the gallery-dl invocation. Do **not** commit cookies, tokens, or account credentials to this repo.
+Do not switch to Safari, generic Chrome, or another Dia profile. If macOS blocks browser-cookie access, stop and ask the user to approve the exact permission; do not export cookies or commit browser data, tokens, or account credentials.
 
 ## MCP tools
 
