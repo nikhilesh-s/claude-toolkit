@@ -39,13 +39,13 @@ def _sheet_has(g: Google, sheet_id: str, record_id: str) -> bool:
     return _sheet_row_number(g, sheet_id, [record_id]) > 0
 
 
-def _sheet_row_number(g: Google, sheet_id: str, record_ids: list[str]) -> int:
-    """1-based row whose Record ID cell contains any of record_ids, else 0."""
+def _sheet_row_number(g: Google, sheet_id: str, record_ids: list[str], exclude: tuple[str, ...] = ()) -> int:
+    """1-based row whose Record ID cell contains any of record_ids (and none of exclude), else 0."""
     if not record_ids:
         return 0
     col = chr(ord("A") + len(D.SCHOLAR_HEADER) - 1)  # Record ID column
     for i, row in enumerate(g.sheet_values(sheet_id, f"{col}1:{col}5000"), start=1):
-        if row and any(rid in row[0] for rid in record_ids):
+        if row and any(rid in row[0] for rid in record_ids) and not any(x in row[0] for x in exclude):
             return i
     return 0
 
@@ -204,6 +204,40 @@ def sync_pending(limit: int = 5, budget_s: float = DEFAULT_BUDGET_S, exclude: st
         if rec["export"]["status"] == "export_pending" and rec["export"].get("last_error", "").startswith("Google API 0"):
             break  # Google unreachable; stop burning the budget
     return done
+
+
+def absorb_remote(kind: str, into_key: str, stray_record_ids: list[str], g: Google | None = None) -> dict:
+    """After entities.absorb: drop the stray's remote row(s) and rewrite the canonical row with merged provenance.
+    Idempotent: a missing stray row is fine; the canonical row is found by any of its record ids."""
+    from . import entities, store
+    cfg = config.load()
+    t = _targets(cfg)
+    ent = entities.get(kind, into_key)
+    if not ent or google_state(cfg) != "ready":
+        return {"remote": "skipped"}
+    g = g or Google()
+    keep = tuple(r for r in ent["record_ids"] if r not in stray_record_ids)  # the canonical row carries these; never delete it
+    anchor = keep[0] if keep else ent["record_ids"][0]
+    rec = store.load(anchor)
+    if kind == "wishlist":
+        fid, tab = t.get("wishlist_doc"), t.get("wishlist_tab_id")
+        removed = [rid for rid in stray_record_ids if g.doc_delete_table_row(fid, rid, tab_id=tab, exclude=keep)]
+        row = D.entity_wishlist_row(ent, rec)
+        updated = any(g.doc_update_table_row(fid, rid, row, tab_id=tab, link_columns=(8,)) for rid in ent["record_ids"])
+        if not updated:
+            g.doc_append_table_row(fid, row, D.WISHLIST_HEADER, tab_id=tab, link_columns=(8,))
+        return {"removed_rows": removed, "canonical_row_updated": updated}
+    fid = t.get("scholarship_sheet")
+    n_stray = _sheet_row_number(g, fid, stray_record_ids, exclude=keep)
+    if n_stray:
+        g.sheet_delete_row(fid, n_stray)
+    row = D.entity_scholarship_row(ent, rec)
+    n = _sheet_row_number(g, fid, ent["record_ids"])
+    if n:
+        g.sheet_update_row(fid, n, row)
+    else:
+        g.sheet_append(fid, [row])
+    return {"removed_rows": [n_stray] if n_stray else [], "canonical_row_updated": bool(n)}
 
 
 def summary_line(ex: dict, rec: dict | None = None) -> str:

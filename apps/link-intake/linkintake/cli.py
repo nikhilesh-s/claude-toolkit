@@ -144,9 +144,21 @@ def cmd_resolve(a) -> int:
 
 
 def cmd_entities(a) -> int:
-    from . import entities
+    from . import entities, sync
     kind = "wishlist" if a.kind == "wishlist" else "scholarship"
-    rows = [{"key": e["key"], "label": entities._label(e), "records": e["record_ids"], "sources": len(e["source_urls"])} for e in entities.load(kind)]
+    if a.absorb:
+        if not a.into:
+            raise SystemExit("--into <canonical entity key> required")
+        stray = entities.get(kind, a.absorb)
+        stray_ids = list(stray["record_ids"]) if stray else []
+        local = entities.absorb(kind, a.absorb, a.into)
+        remote = sync.absorb_remote(kind, a.into, stray_ids)
+        for rid in stray_ids:  # re-sync moved records so their export state reflects the canonical row
+            sync.sync_record(store.load(rid))
+        _out({"local": local, "remote": remote}, a.json)
+        return 0
+    rows = [{"key": e["key"], "label": entities._label(e), "records": e["record_ids"], "sources": len(e["source_urls"]),
+             "variant_key": e["identity"].get("variant_key", ""), "model_numbers": e["identity"].get("model_numbers", [])} for e in entities.load(kind)]
     _out(rows, a.json)
     return 0
 
@@ -315,7 +327,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("id"); g = s.add_mutually_exclusive_group(required=True); g.add_argument("--merge", action="store_true"); g.add_argument("--new", action="store_true")
     s.add_argument("--entity", help="entity key to merge into (default: the matched candidate)"); s.set_defaults(fn=cmd_resolve)
     s = sub.add_parser("entities", help="list destination entities (wishlist products / scholarship cycles)")
-    s.add_argument("kind", choices=["wishlist", "scholarships"]); s.set_defaults(fn=cmd_entities)
+    s.add_argument("kind", choices=["wishlist", "scholarships"]); s.add_argument("--absorb", metavar="STRAY_KEY", help="fold this stray entity into --into")
+    s.add_argument("--into", metavar="CANONICAL_KEY"); s.set_defaults(fn=cmd_entities)
     s = sub.add_parser("sync-skip", help="exclude records from Google sync (test junk); `sync <id>` re-includes")
     s.add_argument("ids", nargs="*"); s.add_argument("--all-pending", action="store_true"); s.set_defaults(fn=cmd_sync_skip)
     sub.add_parser("google-setup", help="one-time: pick/create the destination docs, folders and sheet; persists IDs").set_defaults(fn=cmd_google_setup)

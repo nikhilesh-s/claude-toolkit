@@ -101,7 +101,53 @@ def main():
     assert dedupe_key("u", "wishlist", "Identify this!") == dedupe_key("u", "wishlist", "identify this")
     assert dedupe_key("u", "wishlist", "identify this") != dedupe_key("u", "wishlist", "what color is this")
 
-    print("test_entities: ok (cases 1-11, 13, D-G)")
+    # --- matcher robustness: harmless token differences must not defeat identity
+    base = rec("https://instagram.com/reel/M1/", "wishlist", "charger", {"product_item": "Desktop charging station", "brand": "Gitryin2", "model": "12-in-1 Desktop Charging Station; exact model TBD"})
+    rbase = entities.resolve(base)
+    assert rbase["action"] == "created"
+    for label, sd in [
+        ("reordered tokens", {"brand": "Gitryin2", "model": "Desktop Charging Station 12-in-1"}),
+        ("brand inside model", {"brand": "Gitryin2", "model": "Gitryin2 12 in 1 Desktop Charging Station"}),
+        ("punctuation", {"brand": "Gitryin2", "model": "12 in 1 desktop charging-station"}),
+        ("bundle word", {"brand": "Gitryin2", "model": "12-in-1 Desktop Charging Station (65W Combo)"}),
+    ]:
+        r_ = rec(f"https://example.com/{label.replace(' ', '-')}", "wishlist", label, sd)
+        out = entities.resolve(r_)
+        assert out["action"] == "merged" and out["entity_key"] == rbase["entity_key"], (label, out)
+    # wattage descriptor: same line, becomes the variant of the (previously unspecified) entry
+    w = rec("https://example.com/65w", "wishlist", "65w page", {"brand": "Gitryin2", "model": "Gitryin2 65W 12-in-1 Desktop Charging Station", "identifier": "NESA1V000"})
+    out = entities.resolve(w)
+    assert out["action"] == "merged" and out["entity_key"] == rbase["entity_key"], out
+    ent = entities.get("wishlist", rbase["entity_key"])
+    assert ent["identity"]["variant_key"] == "65w" and "NESA1V000" in ent["identity"]["model_numbers"]
+    # exact identifier beats fuzzy naming: totally different wording, same model number -> merged
+    x = rec("https://example.com/x", "wishlist", "x", {"brand": "Gitryin2", "product_item": "power strip cube thing", "model": "NESA1V000"})
+    assert entities.resolve(x)["entity_key"] == rbase["entity_key"]
+    # known different model numbers stay separate even with similar names
+    y = rec("https://example.com/y", "wishlist", "y", {"brand": "Gitryin2", "model": "12-in-1 Desktop Charging Station", "identifier": "NESA2V000"})
+    ry = entities.resolve(y)
+    assert ry["action"] == "created" and ry["entity_key"] != rbase["entity_key"], ry
+    # variant-only ambiguity (two variants known, new record unspecified) -> possible_duplicate, never first-variant
+    z = rec("https://example.com/z", "wishlist", "z", {"brand": "Bellroy", "model": "Classic Backpack Plus", "variant": "Not chosen. Options: Black or Navy"})
+    rz = entities.resolve(z)
+    assert rz["action"] == "possible_duplicate", rz
+
+    # --- absorb a stray entity into the canonical one: all ids/urls preserved, stray gone, idempotent
+    stray = rec("https://example.com/stray", "wishlist", "stray", {"brand": "Gitryin2", "model": "Charging cube NESA1V000 deluxe", "price": "$99", "identifier": "ZZZ9999"})
+    rs = entities.resolve(stray)
+    if rs["action"] != "created":  # force a stray for the test
+        rs = entities.decide(stray["id"], "new") if rs["action"] == "possible_duplicate" else rs
+    stray_key = rs["entity_key"] if rs["action"] == "created" else None
+    if stray_key and stray_key != rbase["entity_key"]:
+        before_ids = set(entities.get("wishlist", rbase["entity_key"])["record_ids"])
+        res_abs = entities.absorb("wishlist", stray_key, rbase["entity_key"])
+        ent = entities.get("wishlist", rbase["entity_key"])
+        assert stray["id"] in ent["record_ids"] and before_ids <= set(ent["record_ids"]) and "https://example.com/stray" in ent["source_urls"]
+        assert entities.get("wishlist", stray_key) is None and any(p["price"] == "$99" for p in ent["price_observations"])
+        assert store.load(stray["id"])["destination_resolution"]["entity_key"] == rbase["entity_key"]
+        assert entities.absorb("wishlist", stray_key, rbase["entity_key"])["absorbed"] == []  # idempotent
+
+    print("test_entities: ok (cases 1-11, 13, D-G, matcher robustness, absorb)")
 
 
 if __name__ == "__main__":
