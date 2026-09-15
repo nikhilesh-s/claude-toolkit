@@ -36,8 +36,18 @@ def _doc_has(g: Google, doc_id: str, record_id: str, tab_id: str = "") -> bool:
 
 
 def _sheet_has(g: Google, sheet_id: str, record_id: str) -> bool:
+    return _sheet_row_number(g, sheet_id, [record_id]) > 0
+
+
+def _sheet_row_number(g: Google, sheet_id: str, record_ids: list[str]) -> int:
+    """1-based row whose Record ID cell contains any of record_ids, else 0."""
+    if not record_ids:
+        return 0
     col = chr(ord("A") + len(D.SCHOLAR_HEADER) - 1)  # Record ID column
-    return any(row and row[0] == record_id for row in g.sheet_values(sheet_id, f"{col}1:{col}5000"))
+    for i, row in enumerate(g.sheet_values(sheet_id, f"{col}1:{col}5000"), start=1):
+        if row and any(rid in row[0] for rid in record_ids):
+            return i
+    return 0
 
 
 def write_master(g: Google, rec: dict, cfg: dict) -> dict:
@@ -47,6 +57,21 @@ def write_master(g: Google, rec: dict, cfg: dict) -> dict:
     if not _doc_has(g, doc_id, rec["id"]):
         g.doc_append_table_row(doc_id, D.master_row(rec), D.MASTER_HEADER, link_columns=(8,))
     return {"remote_file_id": doc_id, "remote_ref": doc_url(doc_id)}
+
+
+class NeedsDecision(GoogleError):
+    """Semantic possible-duplicate: nothing is written until the user decides (linkintake resolve)."""
+
+
+def _entity_for(rec: dict):
+    from . import entities
+    res = rec.get("destination_resolution") or {}
+    if res.get("action") == "possible_duplicate":
+        raise NeedsDecision(409, f"possible duplicate of '{res.get('candidate_label', res.get('matched_entity'))}' — run `linkintake resolve {rec['id']} --merge` or `--new`")
+    ent = entities.get("wishlist" if rec["intent"]["destination"] == "wishlist" else "scholarship", res.get("entity_key", ""))
+    if not ent:
+        raise GoogleError(412, "no destination entity for this record (save it first)")
+    return ent
 
 
 def write_destination(g: Google, rec: dict, cfg: dict) -> dict:
@@ -62,13 +87,26 @@ def write_destination(g: Google, rec: dict, cfg: dict) -> dict:
         tab = t.get("wishlist_tab_id")
         if not tab:
             raise GoogleError(412, "Wishlist 'Intake Staging' tab not configured: run `linkintake google-setup`")
-        if not _doc_has(g, fid, rec["id"], tab):
-            g.doc_append_table_row(fid, D.wishlist_row(rec), D.WISHLIST_HEADER, tab_id=tab, link_columns=(8,))
-        return {"remote_file_id": fid, "remote_ref": doc_url(fid, tab)}
+        if _doc_has(g, fid, rec["id"], tab):
+            return {"remote_file_id": fid, "remote_ref": doc_url(fid, tab)}  # idempotency: this record already on the sheet
+        ent = _entity_for(rec)
+        row = D.entity_wishlist_row(ent, rec)
+        # merged: rewrite the entity's existing row (found by any earlier contributing Record ID); else append
+        updated = any(g.doc_update_table_row(fid, rid, row, tab_id=tab, link_columns=(8,)) for rid in ent["record_ids"] if rid != rec["id"])
+        if not updated:
+            g.doc_append_table_row(fid, row, D.WISHLIST_HEADER, tab_id=tab, link_columns=(8,))
+        return {"remote_file_id": fid, "remote_ref": doc_url(fid, tab), "merged_row": updated}
     if kind == "sheet":
-        if not _sheet_has(g, fid, rec["id"]):
-            g.sheet_append(fid, [D.scholarship_row(rec)])
-        return {"remote_file_id": fid, "remote_ref": sheet_url(fid)}
+        if _sheet_has(g, fid, rec["id"]):
+            return {"remote_file_id": fid, "remote_ref": sheet_url(fid)}
+        ent = _entity_for(rec)
+        row = D.entity_scholarship_row(ent, rec)
+        n = _sheet_row_number(g, fid, [rid for rid in ent["record_ids"] if rid != rec["id"]])
+        if n:
+            g.sheet_update_row(fid, n, row)
+        else:
+            g.sheet_append(fid, [row])
+        return {"remote_file_id": fid, "remote_ref": sheet_url(fid), "merged_row": bool(n)}
     if not _doc_has(g, fid, rec["id"]):
         g.doc_append_text(fid, D.ENTRY_FOR[dest](rec))
     return {"remote_file_id": fid, "remote_ref": doc_url(fid)}
@@ -84,6 +122,10 @@ def _attempt(part: dict, fn) -> bool:
         part["last_error"] = ""
         part["synced_at"] = _now()
         return True
+    except NeedsDecision as exc:
+        part["status"] = "needs_decision"
+        part["last_error"] = str(exc)
+        return False
     except GoogleError as exc:
         part["status"] = "failed"
         part["last_error"] = str(exc)
@@ -118,7 +160,10 @@ def sync_record(rec: dict, g: Google | None = None, cfg: dict | None = None, per
         return ex
     m_ok = ex["master_sync"]["status"] == "synced" or _attempt(ex["master_sync"], lambda: write_master(g, rec, cfg))
     d_ok = ex["destination_sync"]["status"] == "synced" or _attempt(ex["destination_sync"], lambda: write_destination(g, rec, cfg))
-    ex["status"] = "synced" if (m_ok and d_ok) else "partial" if (m_ok or d_ok) else "export_pending"
+    if ex["destination_sync"]["status"] == "needs_decision":
+        ex["status"] = "needs_decision"
+    else:
+        ex["status"] = "synced" if (m_ok and d_ok) else "partial" if (m_ok or d_ok) else "export_pending"
     ex["last_error"] = "" if ex["status"] == "synced" else (ex["master_sync"]["last_error"] or ex["destination_sync"]["last_error"])
     ex["last_attempt"] = _now()
     if ex["status"] == "synced":
@@ -135,7 +180,7 @@ def pending_records() -> list[dict]:
             rec = store.load(e["id"])
         except FileNotFoundError:
             continue
-        if rec.get("saved_at") and rec.get("export", {}).get("status") in {"export_pending", "partial", "not_configured", None}:
+        if rec.get("saved_at") and rec.get("export", {}).get("status") in {"export_pending", "partial", "not_configured", None}:  # needs_decision waits for the user
             out.append(rec)
     return out
 
@@ -161,16 +206,24 @@ def sync_pending(limit: int = 5, budget_s: float = DEFAULT_BUDGET_S, exclude: st
     return done
 
 
-def summary_line(ex: dict) -> str:
-    """'Saved locally · Google synced' style line for Raycast/CLI."""
+def summary_line(ex: dict, rec: dict | None = None) -> str:
+    """'Saved locally ✓ · Google synced ✓ · merged with existing Wishlist item' style line for Raycast/CLI."""
+    from .entities import describe
     st = ex.get("status", "export_pending")
+    tail = ""
+    if rec and rec.get("destination_resolution", {}).get("action") in ("merged", "possible_duplicate") or (rec and rec.get("destination_resolution", {}).get("variant_of")):
+        tail = " · " + describe(rec["destination_resolution"], rec["intent"]["destination"])
+    if st == "needs_decision":
+        return "Saved locally ✓ · " + (tail.strip(" ·") or "possible duplicate — review needed")
     if st == "synced":
-        return "Saved locally · Google synced"
+        return "Saved locally ✓ · Google synced ✓" + tail
     if st == "off":
-        return "Saved locally · Google export off"
+        return "Saved locally ✓ · Google export off" + tail
+    if st == "skipped":
+        return "Saved locally ✓ · Google skipped" + tail
     if st == "not_configured":
-        return "Saved locally · Google not authorized"
+        return "Saved locally ✓ · Google not authorized" + tail
     if st == "partial":
         m = ex["master_sync"]["status"] == "synced"
-        return f"Saved locally · Master {'synced' if m else 'pending'} · Destination {'pending' if m else 'synced'}"
-    return "Saved locally · Google pending"
+        return f"Saved locally ✓ · Master {'synced ✓' if m else 'pending'} · Destination {'pending' if m else 'synced ✓'}" + tail
+    return "Saved locally ✓ · Google pending" + tail

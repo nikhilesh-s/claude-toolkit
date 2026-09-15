@@ -50,6 +50,9 @@ linkintake reprocess <id> -i "..."     # new instruction/destination, media cach
 linkintake batch tests/urls.txt --save # URL | destination | instruction per line
 linkintake sync [id]                   # retry pending/partial Google exports (oldest first, bounded)
 linkintake sync-status [id]            # Google auth state, pending records, last errors
+linkintake resolve <id> --merge|--new  # decide a possible duplicate, then sync
+linkintake entities wishlist|scholarships
+linkintake list                        # history (also the Raycast Intake History command)
 linkintake google-auth | google-setup  # one time
 linkintake list | show <id> | doctor | config [--set k=v] | cleanup <id>
 ```
@@ -92,6 +95,31 @@ caption_or_text, transcript, visual_notes}`, `extraction{takeaways, focused_resu
 - Duplicate identity = canonical URL + destination + normalized instruction. Same Reel saved to two
   destinations with different notes is two records. Exact repeats need `--force`.
 
+## Duplicates: three different things
+
+| Layer | Identity | Behaviour |
+|---|---|---|
+| Idempotency | Record ID | a retry never writes the same record twice remotely (row/entry checked for the id first) |
+| Exact intake | canonical URL + destination + normalized instruction | blocked unless you confirm (`--force` / Save Anyway) |
+| Semantic entity | Wishlist: product; Scholarships: organization + program + cycle year | `created` / `merged` / `possible_duplicate` (`~/.link-intake/entities/`) |
+
+Master Intake is an audit log: every intake keeps its own row even when several intakes merge into one Wishlist
+or Scholarship row. Supplement Ideas, Design Inspo and Personal Instagram are never semantically deduplicated.
+
+**Wishlist rule.** Match order: identifier (ASIN/SKU/model no.) → official product URL → brand + model
+(+ variant) → same brand + similar name = `possible_duplicate` (never auto-merged). Variant (color/size/
+wattage) is part of identity: same line, different variant = a separate row linked by `product_group`; a record
+with no variant enriches the single existing line, or asks when several variants exist. Merges keep every source
+URL and Record ID, replace a value only with a more specific or higher-confidence one, never with "TBD"/unknown,
+and log price observations with date and source.
+
+**Scholarship rule.** Same organization + program + cycle year = merge (later/official source updates deadline,
+amount, eligibility in place, with per-field provenance). Different year = separate row. Year unknown on one
+side, or same organization with a similar program name = `possible_duplicate`.
+
+`possible_duplicate` writes nothing to Google until you decide: `linkintake resolve <id> --merge|--new`, or
+the Merge into Existing / Keep as Separate Item actions in Raycast. History shows it as "review".
+
 ## Destinations (fixed)
 
 | Destination | Where | Format |
@@ -108,7 +136,9 @@ caption_or_text, transcript, visual_notes}`, `extraction{takeaways, focused_resu
 
 ```bash
 uv run python tests/test_router.py   # offline: canonical URLs, classes, dedupe, depth
-uv run python tests/test_sync.py     # offline: idempotency, partial, pending retry, sheets-disabled, off
+uv run python tests/test_sync.py     # offline: idempotency, partial, pending retry, remote merge, needs_decision
+uv run python tests/test_entities.py # offline: wishlist/scholarship merge matrix
+uv run python tests/test_history.py  # offline: history rows, re-save refused
 tests/smoke_real.sh                  # the one E2E test: Reel -> personal_ig -> extract -> save (local, export pending)
 tests/regression_reels.sh            # all 10 wishlist Reels as Wishlist intents (cache reused, nothing deleted)
 ```

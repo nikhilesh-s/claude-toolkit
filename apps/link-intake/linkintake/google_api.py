@@ -178,6 +178,43 @@ class Google:
         table = [e for e in body.get("content", []) if "table" in e][-1]
         self._fill_row(doc_id, table, -1, cells, tab_id, link_columns)
 
+    def doc_update_table_row(self, doc_id: str, needle: str, cells: list[str], tab_id: str = "", link_columns: tuple[int, ...] = ()) -> bool:
+        """Rewrite the cells of the last table row whose text contains `needle` (a Record ID). Fresh read, then
+        delete+insert per cell from highest index down. Returns False if no such row (caller appends instead)."""
+        body = self._body(self.doc_get(doc_id), tab_id)
+        tables = [e for e in body.get("content", []) if "table" in e]
+        if not tables:
+            return False
+        table = tables[-1]
+        target = None
+        for row in table["table"]["tableRows"]:
+            if any(needle in _elements_text(c.get("content", [])) for c in row["tableCells"]):
+                target = row
+        if target is None:
+            return False
+        reqs: list[dict] = []
+        for ci in sorted(range(len(target["tableCells"])), reverse=True):
+            cell = target["tableCells"][ci]
+            text = (cells[ci] if ci < len(cells) else "") or ""
+            start, end = cell["startIndex"] + 1, cell["endIndex"] - 1  # keep the cell's final newline
+            loc = {"index": start}
+            rng = {"startIndex": start, "endIndex": end}
+            if tab_id:
+                loc["tabId"] = tab_id
+                rng["tabId"] = tab_id
+            if end > start:
+                reqs.append({"deleteContentRange": {"range": rng}})
+            if text:
+                reqs.append({"insertText": {"text": text, "location": loc}})
+                if ci in link_columns and text.startswith("http"):
+                    lr = {"startIndex": start, "endIndex": start + len(text.split("\n")[0])}
+                    if tab_id:
+                        lr["tabId"] = tab_id
+                    reqs.append({"updateTextStyle": {"range": lr, "textStyle": {"link": {"url": text.split("\n")[0]}}, "fields": "link"}})
+        if reqs:
+            self.doc_batch(doc_id, reqs)
+        return True
+
     def _fill_row(self, doc_id: str, table: dict, row_idx: int, values: list[str], tab_id: str, link_columns) -> None:
         row = table["table"]["tableRows"][row_idx]
         writes = []
@@ -214,6 +251,12 @@ class Google:
     def sheet_append(self, sheet_id: str, values: list[list[str]], rng: str = "A1") -> None:
         self.request("POST", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{urllib.parse.quote(rng)}:append",
                      body={"values": values}, params={"valueInputOption": "USER_ENTERED", "insertDataOption": "INSERT_ROWS"})
+
+    def sheet_update_row(self, sheet_id: str, row_number: int, values: list[str]) -> None:
+        last = chr(ord("A") + len(values) - 1)
+        rng = f"A{row_number}:{last}{row_number}"
+        self.request("PUT", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{urllib.parse.quote(rng)}",
+                     body={"values": [values]}, params={"valueInputOption": "USER_ENTERED"})
 
     def sheet_values(self, sheet_id: str, rng: str = "A1:Z500") -> list[list[str]]:
         return self.request("GET", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{urllib.parse.quote(rng)}").get("values", [])

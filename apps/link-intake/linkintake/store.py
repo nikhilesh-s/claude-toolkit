@@ -78,6 +78,34 @@ def find_exact(dedupe_key: str) -> dict | None:
     return None
 
 
+def history(n: int = 50, include_pending: bool = True) -> list[dict]:
+    """Compact rows for the History view: saved records (from their files) plus unsaved reviews, newest first."""
+    from .records import DESTINATIONS
+    from .sync import summary_line
+    rows = []
+    files = list(RECORDS.glob("*.json")) + (list(PENDING.glob("*.json")) if include_pending else [])
+    for f in sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)[: n * 2]:
+        try:
+            r = json.loads(f.read_text())
+        except Exception:
+            continue
+        ex = r.get("export") or {}
+        rows.append({
+            "id": r["id"], "title": r["source"].get("title") or r["source"]["original_url"], "creator": r["source"].get("creator", ""),
+            "platform": r["source"].get("platform", ""), "url": r["source"]["original_url"],
+            "destination": r["intent"]["destination"], "destination_title": DESTINATIONS.get(r["intent"]["destination"], r["intent"]["destination"]),
+            "instruction": r["intent"]["user_instruction"], "created_at": r["created_at"], "saved_at": r.get("saved_at", ""),
+            "saved": bool(r.get("saved_at")), "status": r["status"], "confidence": r["extraction"].get("confidence", 0),
+            "export_status": ex.get("status", "") if r.get("saved_at") else "", "sync_line": summary_line(ex, r) if r.get("saved_at") else "Not saved",
+            "master_status": (ex.get("master_sync") or {}).get("status", ""), "destination_status": (ex.get("destination_sync") or {}).get("status", ""),
+            "last_error": ex.get("last_error", "") or (ex.get("destination_sync") or {}).get("last_error", ""),
+            "resolution": (r.get("destination_resolution") or {}).get("action", ""), "resolution_label": (r.get("destination_resolution") or {}).get("candidate_label", ""),
+            "google_ref": (ex.get("destination_sync") or {}).get("remote_ref", "") or (ex.get("master_sync") or {}).get("remote_ref", ""),
+        })
+    rows.sort(key=lambda x: x.get("saved_at") or x["created_at"], reverse=True)
+    return rows[:n]
+
+
 def recent(n: int = 20) -> list[dict]:
     return list(reversed(index()))[:n]
 

@@ -57,11 +57,13 @@ in uncertainty."""
 
 GUIDANCE = {
     "wishlist": """Destination: Wishlist (structured). Fill structured_data with these fields when supported by evidence:
-product_item, brand, model, color_style, size_spec, price, notes. Use "exact model TBD" when the product is
-recognizable but the exact model/colorway is not supported. Only give a price if it is visible in the source or
-confirmed by targeted research. Never guess model, color, size, or price.""",
-    "scholarships": """Destination: Scholarships (structured). Fill structured_data with: scholarship, organization, deadline,
-amount, eligibility, required_materials, link, notes. Leave a field empty rather than guessing. Dates as ISO if possible.""",
+product_item, brand, model, variant (the purchase choice: color/size/wattage, e.g. "Navy" or "65W"), color_style,
+size_spec, price, identifier (ASIN/SKU/model number if visible or found), product_url (official or retailer page if
+found), notes. Use "exact model TBD" when the product is recognizable but the exact model is not supported. Only
+give a price if it is visible in the source or confirmed by targeted research. Never guess model, variant, or price.""",
+    "scholarships": """Destination: Scholarships (structured). Fill structured_data with: scholarship (program name without the
+year), organization, cycle_year (application cycle, e.g. 2027, from the deadline or page), deadline, amount,
+eligibility, required_materials, link, notes. Leave a field empty rather than guessing. Dates as ISO if possible.""",
     "supplement_ideas": """Destination: Supplement Ideas (college supplemental essays / content bank). Prioritize the specific idea Nik
 pointed at (metaphor, framing, line, structure). Quote or closely paraphrase it, then say in 1-3 sentences why it works
 and how it could be reused. structured_data may be empty. tags: pick from Personal Statement, Why Major, Intellectual

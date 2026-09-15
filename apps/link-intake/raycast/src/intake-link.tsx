@@ -8,7 +8,7 @@ import {
   Detail,
   Form,
   Icon,
-  popToRoot,
+  open,
   showToast,
   Toast,
   useNavigation,
@@ -16,6 +16,7 @@ import {
 import type { LaunchProps } from "@raycast/api";
 import { useEffect, useRef, useState } from "react";
 import { DESTINATIONS, destinationTitle, IntakeRecord, runCli, syncLine, SyncState } from "./cli";
+import History from "./intake-history";
 
 type Draft = { url: string; destination: string; instruction: string };
 
@@ -58,6 +59,7 @@ function IntakeForm(props: { draft?: Draft; reprocessId?: string }) {
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Process Link" icon={Icon.Bolt} onSubmit={submit} />
+          <Action title="History" icon={Icon.Clock} shortcut={{ modifiers: ["cmd"], key: "h" }} onAction={() => push(<History />)} />
         </ActionPanel>
       }
     >
@@ -148,7 +150,7 @@ export function SyncStatus({ rec }: { rec: IntakeRecord }) {
   const [state, setState] = useState<SyncState | undefined>(rec.export);
   const [busy, setBusy] = useState(false);
   const md = [
-    `## ${syncLine(state)}`,
+    `## ${syncLine(state, rec.destination_resolution, rec.intent.destination)}`,
     `**Record** \`${rec.id}\` · ${destinationTitle(rec.intent.destination)}`,
     `### Master Intake\n${part(state?.master_sync)}`,
     `### Destination\n${part(state?.destination_sync)}`,
@@ -164,7 +166,7 @@ export function SyncStatus({ rec }: { rec: IntakeRecord }) {
       const updated = await runCli(["sync", rec.id]);
       setState(updated.export);
       toast.style = Toast.Style.Success;
-      toast.title = syncLine(updated.export);
+      toast.title = syncLine(updated.export, updated.destination_resolution, updated.intent.destination);
     } catch (e) {
       toast.style = Toast.Style.Failure;
       toast.title = "Sync failed";
@@ -202,12 +204,20 @@ export async function syncAllPending() {
   }
 }
 
-function Review({ rec }: { rec: IntakeRecord }) {
+export function Review({ rec: initial }: { rec: IntakeRecord }) {
   const { push } = useNavigation();
+  const [rec, setRec] = useState<IntakeRecord>(initial);
+  const [saveError, setSaveError] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  const saved = !!rec.saved_at;
   const s = rec.source, e = rec.extraction, c = rec.context;
   const fields = fieldList(rec);
   const takeaways = e.takeaways?.length ? e.takeaways : [];
   const md = [
+    saved ? `> ✅ **${syncLine(rec.export, rec.destination_resolution, rec.intent.destination)}** · ${rec.saved_at ? new Date(rec.saved_at).toLocaleString() : ""}${rec.export?.last_error && rec.export.status !== "needs_decision" ? `\n> \`${rec.export.last_error.slice(0, 160)}\`` : ""}` : "",
+    saved && rec.destination_resolution?.action === "possible_duplicate" ? `> ⚠️ Looks like **${rec.destination_resolution.candidate_label || rec.destination_resolution.matched_entity}** (${(rec.destination_resolution.match_reasons || []).join("; ")}). Nothing was written to Google yet. Use *Merge into Existing* or *Keep as Separate Item*.` : "",
+    saved && rec.destination_resolution?.action === "merged" ? `_Merged into existing item (${(rec.destination_resolution.match_reasons || []).join("; ")}). Contributing records: ${(rec.destination_resolution.contributing_record_ids || []).length}._` : "",
+    saveError ? `> ❌ **Save failed** — nothing was lost, this review is still here. Retry with Save.\n> \`${saveError}\`` : "",
     `## ${s.title || s.original_url}`,
     s.creator ? `*${s.creator}* · ${s.platform}` : `*${s.platform}*`,
     rec.artifacts.contact_sheet ? `![preview](${rec.artifacts.contact_sheet})` : "",
@@ -225,27 +235,47 @@ function Review({ rec }: { rec: IntakeRecord }) {
   const tag = statusTag(rec);
 
   async function save() {
+    if (saved || saving) return; // never double-save
     if (rec.exact_duplicate) {
       const ok = await confirmAlert({ title: "Save duplicate?", message: "Same URL + destination + instruction already exists.", primaryAction: { title: "Save Anyway", style: Alert.ActionStyle.Destructive } });
       if (!ok) return;
     }
-    const toast = await showToast({ style: Toast.Style.Animated, title: "Saving…" });
+    setSaving(true);
+    setSaveError(undefined);
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Saving…", message: "local record, then Google" });
     try {
-      const saved = await runCli(["save", rec.id, ...(rec.exact_duplicate ? ["--force"] : [])]);
-      const ex = saved.export;
-      const line = syncLine(ex);
-      toast.style = ex?.status === "synced" ? Toast.Style.Success : Toast.Style.Success;
-      toast.title = line;
+      const result = await runCli(["save", rec.id, ...(rec.exact_duplicate ? ["--force"] : [])]);
+      if (!result.saved_at) throw new Error("CLI returned no saved_at; record not confirmed");
+      setRec(result); // the view itself becomes the confirmation: stays open, shows Saved ✓ + sync state
+      const ex = result.export;
+      toast.style = Toast.Style.Success;
+      toast.title = syncLine(ex, result.destination_resolution, result.intent.destination);
       const err = ex?.last_error || ex?.destination_sync?.last_error || ex?.master_sync?.last_error;
       toast.message = ex?.status === "synced" ? destinationTitle(rec.intent.destination) : err ? err.slice(0, 120) : destinationTitle(rec.intent.destination);
       const ref = ex?.destination_sync?.remote_ref?.startsWith("http") ? ex.destination_sync.remote_ref : ex?.master_sync?.remote_ref;
-      if (ref && ref.startsWith("http")) toast.primaryAction = { title: "Copy Google Link", onAction: () => Clipboard.copy(ref) };
-      if (ex?.status !== "synced") toast.secondaryAction = { title: "Show Sync Status", onAction: () => push(<SyncStatus rec={saved} />) };
-      await popToRoot({ clearSearchBar: true });
+      if (ref && ref.startsWith("http")) toast.primaryAction = { title: "Open in Google", onAction: () => open(ref) };
     } catch (err) {
+      const msg = String((err as Error).message).slice(0, 300);
+      setSaveError(msg);
       toast.style = Toast.Style.Failure;
-      toast.title = "Save failed";
-      toast.message = String((err as Error).message).slice(0, 200);
+      toast.title = "Save failed — review kept";
+      toast.message = msg.slice(0, 120);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resolveDup(flag: "--merge" | "--new") {
+    const toast = await showToast({ style: Toast.Style.Animated, title: flag === "--merge" ? "Merging…" : "Creating separate item…" });
+    try {
+      const updated = await runCli(["resolve", rec.id, flag]);
+      setRec(updated);
+      toast.style = Toast.Style.Success;
+      toast.title = syncLine(updated.export, updated.destination_resolution, updated.intent.destination);
+    } catch (e) {
+      toast.style = Toast.Style.Failure;
+      toast.title = "Could not resolve";
+      toast.message = String((e as Error).message).slice(0, 200);
     }
   }
 
@@ -257,6 +287,7 @@ function Review({ rec }: { rec: IntakeRecord }) {
       metadata={
         <Detail.Metadata>
           <Detail.Metadata.TagList title="Status">
+            {saved ? <Detail.Metadata.TagList.Item text="Saved ✓" color={Color.Green} /> : null}
             <Detail.Metadata.TagList.Item text={tag.text} color={tag.color} />
             <Detail.Metadata.TagList.Item text={`${Math.round((e.confidence || 0) * 100)}%`} />
           </Detail.Metadata.TagList>
@@ -271,13 +302,20 @@ function Review({ rec }: { rec: IntakeRecord }) {
       }
       actions={
         <ActionPanel>
-          <Action title="Save" icon={Icon.Check} onAction={save} />
+          {!saved ? <Action title={saving ? "Saving…" : "Save"} icon={Icon.Check} onAction={save} /> : null}
+          {saved && rec.destination_resolution?.action === "possible_duplicate" ? (
+            <Action title="Merge into Existing" icon={Icon.Link} onAction={() => resolveDup("--merge")} />
+          ) : null}
+          {saved && rec.destination_resolution?.action === "possible_duplicate" ? (
+            <Action title="Keep as Separate Item" icon={Icon.Plus} onAction={() => resolveDup("--new")} />
+          ) : null}
+          {saved ? <Action title="Show Sync Status" icon={Icon.Info} onAction={() => push(<SyncStatus rec={rec} />)} /> : null}
+          {saved ? <Action title="History" icon={Icon.Clock} shortcut={{ modifiers: ["cmd"], key: "h" }} onAction={() => push(<History />)} /> : null}
           <Action title="Show Full Details" icon={Icon.Document} shortcut={{ modifiers: ["cmd", "shift"], key: "d" }} onAction={() => push(<Details rec={rec} />)} />
           <Action title="Sync Pending" icon={Icon.Cloud} shortcut={{ modifiers: ["cmd", "shift"], key: "s" }} onAction={() => syncAllPending()} />
-          <Action title="Show Sync Status" icon={Icon.Info} onAction={() => push(<SyncStatus rec={rec} />)} />
-          <Action title="Edit Instruction" icon={Icon.Pencil} shortcut={{ modifiers: ["cmd"], key: "e" }} onAction={() => push(<IntakeForm draft={draft} reprocessId={rec.id} />)} />
-          <Action title="Change Destination" icon={Icon.Folder} shortcut={{ modifiers: ["cmd"], key: "d" }} onAction={() => push(<IntakeForm draft={draft} reprocessId={rec.id} />)} />
-          <Action title="Reprocess" icon={Icon.ArrowClockwise} shortcut={{ modifiers: ["cmd"], key: "r" }} onAction={() => push(<Processing draft={draft} reprocessId={rec.id} />)} />
+          {!saved ? <Action title="Edit Instruction" icon={Icon.Pencil} shortcut={{ modifiers: ["cmd"], key: "e" }} onAction={() => push(<IntakeForm draft={draft} reprocessId={rec.id} />)} /> : null}
+          {!saved ? <Action title="Change Destination" icon={Icon.Folder} shortcut={{ modifiers: ["cmd"], key: "d" }} onAction={() => push(<IntakeForm draft={draft} reprocessId={rec.id} />)} /> : null}
+          {!saved ? <Action title="Reprocess" icon={Icon.ArrowClockwise} shortcut={{ modifiers: ["cmd"], key: "r" }} onAction={() => push(<Processing draft={draft} reprocessId={rec.id} />)} /> : null}
           <Action.OpenInBrowser title="Open Original URL" url={s.original_url} shortcut={{ modifiers: ["cmd"], key: "o" }} />
           <Action.CopyToClipboard title="Copy Extracted Result" content={e.focused_result || ""} shortcut={{ modifiers: ["cmd", "shift"], key: "c" }} />
         </ActionPanel>

@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import cleanup, config, depth, extract, store, sync
+from . import cleanup, config, depth, entities, extract, store, sync
 from .adapters import direct_file, google_workspace, media_unlocker as mu, video, web_page
 from .records import clip, new_record, normalize_destination
 from .router import canonicalize, classify
@@ -222,6 +222,10 @@ def save_record(record_id: str, force: bool = False) -> dict:
     rec["saved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     store.save(rec)  # 1. local canonical record committed first; nothing below can undo this
     rec["cleanup"] = cleanup.cleanup_record(rec)
+    try:
+        rec["destination_resolution"] = entities.resolve(rec)  # semantic layer: created / merged / possible_duplicate
+    except Exception as exc:
+        rec["destination_resolution"] = {"action": "created", "entity_key": "", "match_reasons": [f"resolution error: {exc}"[:200]], "contributing_record_ids": [rec["id"]]}
     store.write(rec)
     sync.sync_record(rec)  # 2+3. Master then destination; failures land in rec["export"], never raise
     if rec["export"].get("status") == "synced":

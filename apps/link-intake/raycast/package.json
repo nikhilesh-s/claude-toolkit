@@ -16,6 +16,13 @@
       "mode": "view"
     },
     {
+      "name": "intake-history",
+      "title": "Intake History",
+      "subtitle": "Link Intake",
+      "description": "Recently saved and reviewed links: did it save, where did it go",
+      "mode": "view"
+    },
+    {
       "name": "sync-pending",
       "title": "Sync Pending",
       "subtitle": "Link Intake",
