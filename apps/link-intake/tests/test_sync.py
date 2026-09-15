@@ -5,7 +5,7 @@ import tempfile
 
 os.environ["LINKINTAKE_STATE_DIR"] = tempfile.mkdtemp(prefix="linkintake-test-")
 
-from linkintake import config, store, sync  # noqa: E402
+from linkintake import config, entities, store, sync  # noqa: E402
 from linkintake.destinations import MASTER_HEADER, SCHOLAR_HEADER  # noqa: E402
 from linkintake.google_api import GoogleError  # noqa: E402
 from linkintake.records import new_record  # noqa: E402
@@ -37,7 +37,21 @@ class FakeGoogle:
 
     def doc_append_table_row(self, doc_id, cells, header, tab_id="", link_columns=()):
         self._maybe_fail("doc_append_table_row")
-        self.docs[doc_id][tab_id] += " | ".join(cells) + "\n"
+        self.docs[doc_id][tab_id] += " | ".join(c.replace("\n", " / ") for c in cells) + "\n"  # one line per row
+
+    def doc_update_table_row(self, doc_id, needle, cells, tab_id="", link_columns=()):
+        self._maybe_fail("doc_update_table_row")
+        lines = self.docs[doc_id][tab_id].split("\n")
+        for i, line in enumerate(lines):
+            if needle in line:
+                lines[i] = " | ".join(c.replace("\n", " / ") for c in cells)
+                self.docs[doc_id][tab_id] = "\n".join(lines)
+                return True
+        return False
+
+    def sheet_update_row(self, sheet_id, row_number, values):
+        self._maybe_fail("sheet_update_row")
+        self.sheets[sheet_id][row_number - 1] = values
 
     def doc_append_text(self, doc_id, text, tab_id=""):
         self._maybe_fail("doc_append_text")
@@ -69,9 +83,13 @@ def make(dest="personal_ig", instruction="test"):
                      platform="example.com", destination=dest, instruction=instruction)
     rec["status"] = "ready"
     rec["extraction"].update({"takeaways": ["a", "b"], "focused_result": "detail", "tags": ["x"], "confidence": 0.8,
-                              "structured_data": {"scholarship": "S", "product_item": "Lamp"}})
+                              "structured_data": {"scholarship": "S" + instruction, "organization": "Org", "deadline": "2027-01-01",
+                                                  "product_item": "Lamp " + instruction, "brand": "Acme", "model": "L-" + instruction}})
     rec["saved_at"] = rec["created_at"]
     store.save(rec)
+    if dest in ("wishlist", "scholarships"):
+        rec["destination_resolution"] = entities.resolve(rec)
+        store.write(rec)
     return rec
 
 
@@ -94,7 +112,7 @@ def main():
     assert ex["status"] == "synced" and ex["master_sync"]["status"] == "synced" and ex["destination_sync"]["status"] == "synced"
     assert r["id"] in FAKE.docs["MASTER"][""] and r["id"] in FAKE.docs["IG"][""]
     assert ex["destination_sync"]["destination"] == "personal_ig" and ex["synced_at"]
-    assert sync.summary_line(ex) == "Saved locally · Google synced"
+    assert sync.summary_line(ex) == "Saved locally ✓ · Google synced ✓"
 
     # 2. retry after success never duplicates (idempotent by Record ID)
     before = (FAKE.docs["MASTER"][""], FAKE.docs["IG"][""])
@@ -110,7 +128,7 @@ def main():
     ex = sync.sync_record(r, g=FAKE, cfg=cfg)
     assert ex["status"] == "partial" and ex["master_sync"]["status"] == "failed" and "503" in ex["master_sync"]["last_error"]
     assert ex["destination_sync"]["status"] == "synced" and r["id"] in FAKE.docs["SUPP"][""]
-    assert sync.summary_line(ex) == "Saved locally · Master pending · Destination synced"
+    assert sync.summary_line(ex) == "Saved locally ✓ · Master pending · Destination synced ✓"
     # ...then master recovers on retry; destination not re-appended
     del FAKE.fail["doc_append_table_row"]
     ex = sync.sync_record(r, g=FAKE, cfg=cfg)
@@ -132,7 +150,7 @@ def main():
     ex = sync.sync_record(r, g=FAKE, cfg=cfg)
     assert ex["status"] == "partial" and ex["master_sync"]["status"] == "synced" and "wishlist boom" in ex["destination_sync"]["last_error"]
     assert FAKE.docs["WISH"][""] == "Overview stays untouched\n"
-    assert sync.summary_line(ex) == "Saved locally · Master synced · Destination pending"
+    assert sync.summary_line(ex) == "Saved locally ✓ · Master synced ✓ · Destination pending"
 
     # 5. Google unreachable -> export_pending, nothing written, local record intact
     FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
@@ -178,7 +196,45 @@ def main():
     ex = sync.sync_record(make("inbox", "off"), g=None, cfg=cfg)
     assert ex["status"] == "off"
 
-    print("test_sync: ok (9 scenarios)")
+    # 10. semantic merge on the remote: second record about the same product updates the existing row, never appends;
+    #     a retry of either record after a partial failure still never duplicates (case 12)
+    cfg["google"]["export_mode"] = "auto"
+    FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
+    w1 = make("wishlist", "same-product")   # entity created
+    ex1 = sync.sync_record(w1, g=FAKE, cfg=cfg)
+    assert ex1["status"] == "synced" and FAKE.docs["WISH"]["t.staging"].count("\n") == 1  # one product row (fake writes no header)
+    w2 = new_record(original_url="https://example.com/other-reel", canonical_url="https://example.com/other-reel", source_class="web_page",
+                    platform="example.com", destination="wishlist", instruction="another angle")
+    w2["status"] = "ready"; w2["saved_at"] = w2["created_at"]
+    w2["extraction"].update({"confidence": 0.9, "structured_data": {"brand": "Acme", "model": "L-same-product", "price": "$10"}})
+    store.save(w2)
+    w2["destination_resolution"] = entities.resolve(w2)
+    assert w2["destination_resolution"]["action"] == "merged"
+    FAKE.fail["doc_update_table_row"] = GoogleError(500, "flaky")
+    ex2 = sync.sync_record(w2, g=FAKE, cfg=cfg)
+    assert ex2["status"] == "partial" and ex2["master_sync"]["status"] == "synced"
+    del FAKE.fail["doc_update_table_row"]
+    ex2 = sync.sync_record(w2, g=FAKE, cfg=cfg)  # retry after partial failure
+    assert ex2["status"] == "synced" and ex2["destination_sync"].get("merged_row") is True
+    rows = FAKE.docs["WISH"]["t.staging"].strip().split("\n")
+    assert len(rows) == 1, rows  # still ONE product row
+    assert w1["id"] in rows[0] and w2["id"] in rows[0] and "$10" in rows[0]
+    sync.sync_record(w1, g=FAKE, cfg=cfg); sync.sync_record(w2, g=FAKE, cfg=cfg)  # idempotent retries
+    assert FAKE.docs["WISH"]["t.staging"].strip().count("\n") == 0
+    # possible duplicate: nothing written, status needs_decision, not swept
+    w3 = new_record(original_url="https://example.com/vague", canonical_url="https://example.com/vague", source_class="web_page",
+                    platform="example.com", destination="wishlist", instruction="vague")
+    w3["status"] = "ready"; w3["saved_at"] = w3["created_at"]
+    w3["extraction"].update({"confidence": 0.7, "structured_data": {"brand": "Acme", "product_item": "Lamp same product deluxe"}})
+    store.save(w3)
+    w3["destination_resolution"] = entities.resolve(w3)
+    assert w3["destination_resolution"]["action"] == "possible_duplicate"
+    ex3 = sync.sync_record(w3, g=FAKE, cfg=cfg)
+    assert ex3["status"] == "needs_decision" and FAKE.docs["WISH"]["t.staging"].strip().count("\n") == 0
+    assert all(r["id"] != w3["id"] for r in sync.pending_records())
+    assert sync.summary_line(ex3, w3).startswith("Saved locally ✓ · possible Wishlist duplicate")
+
+    print("test_sync: ok (11 scenarios)")
 
 
 if __name__ == "__main__":

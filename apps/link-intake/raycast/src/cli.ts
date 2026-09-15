@@ -3,23 +3,46 @@ import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 
 export type SyncPart = { status: "pending" | "synced" | "failed"; destination?: string; remote_file_id: string; remote_ref: string; last_attempt: string; last_error: string; synced_at: string };
-export type SyncState = { status: "synced" | "partial" | "export_pending" | "not_configured" | "off"; master_sync?: SyncPart; destination_sync?: SyncPart; last_error?: string; last_attempt?: string; synced_at?: string };
+export type SyncState = { status: "synced" | "partial" | "export_pending" | "not_configured" | "off" | "needs_decision" | "skipped"; master_sync?: SyncPart; destination_sync?: SyncPart; last_error?: string; last_attempt?: string; synced_at?: string };
 
-export function syncLine(ex?: SyncState): string {
+export type Resolution = { action?: string; entity_key?: string; matched_entity?: string; match_confidence?: number; match_reasons?: string[]; contributing_record_ids?: string[]; candidate_label?: string; variant_of?: string; enriched_fields?: string[] };
+
+export function resolutionLine(res?: Resolution, dest?: string): string {
+  const name = destinationTitle(dest ?? "");
+  if (!res || !res.action || res.action === "n/a") return "";
+  if (res.action === "merged") return `merged with existing ${name} item`;
+  if (res.action === "possible_duplicate") return `possible ${name} duplicate — review needed`;
+  if (res.action === "created" && res.variant_of) return `new variant of an existing ${name} item`;
+  return "";
+}
+
+export function syncLine(ex?: SyncState, res?: Resolution, dest?: string): string {
   const st = ex?.status ?? "export_pending";
-  if (st === "synced") return "Saved locally · Google synced";
-  if (st === "off") return "Saved locally · Google export off";
-  if (st === "not_configured") return "Saved locally · Google not authorized";
+  const tail = resolutionLine(res, dest);
+  const t = tail ? ` · ${tail}` : "";
+  if (st === "needs_decision") return `Saved locally ✓ · ${tail || "possible duplicate — review needed"}`;
+  if (st === "synced") return `Saved locally ✓ · Google synced ✓${t}`;
+  if (st === "off") return `Saved locally ✓ · Google export off${t}`;
+  if (st === "skipped") return `Saved locally ✓ · Google skipped${t}`;
+  if (st === "not_configured") return `Saved locally ✓ · Google not authorized${t}`;
   if (st === "partial") {
     const m = ex?.master_sync?.status === "synced";
-    return `Saved locally · Master ${m ? "synced" : "pending"} · Destination ${m ? "pending" : "synced"}`;
+    return `Saved locally ✓ · Master ${m ? "synced ✓" : "pending"} · Destination ${m ? "pending" : "synced ✓"}${t}`;
   }
-  return "Saved locally · Google pending";
+  return `Saved locally ✓ · Google pending${t}`;
 }
+
+export type HistoryRow = {
+  id: string; title: string; creator: string; platform: string; url: string; destination: string; destination_title: string;
+  instruction: string; created_at: string; saved_at: string; saved: boolean; status: string; confidence: number;
+  export_status: string; sync_line: string; google_ref: string;
+  master_status: string; destination_status: string; last_error: string; resolution: string; resolution_label: string;
+};
 
 export type IntakeRecord = {
   id: string;
   created_at: string;
+  saved_at?: string;
   status: "ready" | "needs_review" | "failed";
   source: { original_url: string; canonical_url: string; source_class: string; platform: string; title: string; creator: string; published_at: string };
   intent: { destination: string; user_instruction: string };
@@ -28,6 +51,7 @@ export type IntakeRecord = {
   artifacts: { contact_sheet: string; media_unlocker_job_id: string; frames?: { file: string; t: string }[] };
   processing: { llm_backend: string; adapter: string };
   export?: SyncState;
+  destination_resolution?: Resolution;
   errors: string[];
   duplicate_of: string[];
   exact_duplicate?: string;

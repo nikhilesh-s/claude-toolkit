@@ -78,6 +78,41 @@ def wishlist_row(rec: dict) -> list[str]:
             clip(sd.get("notes") or _insight(rec, 400), 400), rec["source"]["original_url"], rec["id"]]
 
 
+def entity_wishlist_row(ent: dict, rec: dict) -> list[str]:
+    """One Wishlist row per product entity; provenance = every source URL + every Record ID."""
+    v = {k: x["value"] for k, x in ent["fields"].items() if isinstance(x, dict)}
+    variant = v.get("variant") or " / ".join(x for x in (v.get("color_style"), v.get("size_spec")) if x)
+    prices = ent.get("price_observations") or []
+    price = v.get("price", "")
+    if prices:
+        latest = prices[-1]
+        price = f"{latest['price']} (seen {latest['at'][:10]})"
+    why = "\n".join(f"• {w}" for w in _instructions(ent, rec))
+    return [_date(rec), v.get("product_item") or rec["source"].get("title", ""), v.get("brand", ""), v.get("model", ""), variant, price,
+            why, clip(v.get("notes", ""), 400), "\n".join(ent["source_urls"]), ", ".join(ent["record_ids"])]
+
+
+def _instructions(ent: dict, rec: dict) -> list[str]:
+    from . import store
+    out = []
+    for rid in ent["record_ids"]:
+        try:
+            r = rec if rid == rec["id"] else store.load(rid)
+            ins = r["intent"]["user_instruction"]
+        except Exception:
+            continue
+        if ins and ins not in out:
+            out.append(ins)
+    return out
+
+
+def entity_scholarship_row(ent: dict, rec: dict) -> list[str]:
+    v = {k: x["value"] for k, x in ent["fields"].items() if isinstance(x, dict)}
+    return [v.get("scholarship") or rec["source"].get("title", ""), v.get("organization", ""), v.get("amount", ""), v.get("deadline", ""),
+            v.get("eligibility", ""), v.get("required_materials", ""), v.get("link") or ent["source_urls"][0], "New", "",
+            clip(v.get("notes") or _insight(rec, 500), 500), "\n".join(ent["source_urls"]), _date(rec), ", ".join(ent["record_ids"])]
+
+
 # ---------- Scholarship Tracker (sheet)
 def scholarship_row(rec: dict) -> list[str]:
     sd = rec["extraction"].get("structured_data", {})

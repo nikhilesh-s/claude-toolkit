@@ -48,8 +48,12 @@ Add `--json` before the subcommand for machine-readable output. Destinations: `w
 6. **Google is a direct REST client with the personal account's token** (`~/.link-intake/google/`), set up once
    by `linkintake google-auth` + `google-setup`. Never read gswitch, workspace-mcp, or the Funnel. Every remote
    entry carries the Record ID and is checked before appending, so `linkintake sync` is always safe to re-run.
-7. **Duplicates**: identity = canonical URL + destination + normalized instruction. Same URL with a
-   different intent is a legitimate second record. Exact duplicates need `--force`.
+7. **Duplicates, three layers.** Idempotency (Record ID: retries never write twice); exact intake (URL +
+   destination + instruction: needs `--force`); semantic entity (Wishlist product / Scholarship cycle: `created`,
+   `merged`, or `possible_duplicate`). Master Intake keeps every intake. A `possible_duplicate` writes nothing to
+   Google until `linkintake resolve <id> --merge|--new`. Supplement/Design/Instagram never merge.
+8. **Did it save?** `linkintake list` (or Raycast → Intake History) is local-first truth: saved time, sync
+   status per part, resolution action, last error.
 
 ## Rules
 

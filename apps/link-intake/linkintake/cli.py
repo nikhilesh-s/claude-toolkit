@@ -48,7 +48,10 @@ def _summary(rec: dict) -> str:
     ex = rec.get("export", {})
     if rec.get("saved_at"):
         from .sync import summary_line
-        lines.append(f"Sync:        {summary_line(ex)}")
+        lines.append(f"Sync:        {summary_line(ex, rec)}")
+        res = rec.get("destination_resolution") or {}
+        if res.get("action") not in (None, "", "n/a"):
+            lines.append(f"Entity:      {res['action']} {res.get('entity_key') or res.get('matched_entity', '')}  ({', '.join(res.get('match_reasons', []))})")
         for k in ("master_sync", "destination_sync"):
             v = ex.get(k) or {}
             if v.get("status") == "synced":
@@ -130,6 +133,24 @@ def cmd_sync_skip(a) -> int:
     return 0
 
 
+def cmd_resolve(a) -> int:
+    """Decide a possible duplicate: merge into the matched entity or create a separate one; then sync."""
+    from . import entities, sync
+    res = entities.decide(a.id, "merge" if a.merge else "new", a.entity or "")
+    rec = store.load(a.id)
+    sync.sync_record(rec)
+    _out(rec if a.json else {"resolution": res, "sync": rec["export"]["status"]}, a.json)
+    return 0
+
+
+def cmd_entities(a) -> int:
+    from . import entities
+    kind = "wishlist" if a.kind == "wishlist" else "scholarship"
+    rows = [{"key": e["key"], "label": entities._label(e), "records": e["record_ids"], "sources": len(e["source_urls"])} for e in entities.load(kind)]
+    _out(rows, a.json)
+    return 0
+
+
 def cmd_google_setup(a) -> int:
     from . import google_setup
     google_setup.run()
@@ -137,8 +158,15 @@ def cmd_google_setup(a) -> int:
 
 
 def cmd_list(a) -> int:
-    rows = store.recent(a.limit)
-    _out(rows, a.json) if a.json else print("\n".join(store.describe(r) for r in rows) or "(no saved records)")
+    rows = store.history(a.limit, include_pending=not a.saved_only)
+    if a.json:
+        print(json.dumps(rows, ensure_ascii=False))
+    else:
+        for r in rows:
+            flag = "SAVED " if r["saved"] else "unsaved"
+            print(f"{r['id']}  {flag}  {r['destination_title']:32s} {r['sync_line']:40s} {r['title'][:40]}  {r['url']}")
+        if not rows:
+            print("(no records)")
     return 0
 
 
@@ -283,10 +311,16 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_sync)
     s = sub.add_parser("sync-status", help="Google auth state + records still pending, with last errors")
     s.add_argument("id", nargs="?"); s.set_defaults(fn=cmd_sync_status)
+    s = sub.add_parser("resolve", help="decide a possible duplicate: --merge (into the matched entity) or --new")
+    s.add_argument("id"); g = s.add_mutually_exclusive_group(required=True); g.add_argument("--merge", action="store_true"); g.add_argument("--new", action="store_true")
+    s.add_argument("--entity", help="entity key to merge into (default: the matched candidate)"); s.set_defaults(fn=cmd_resolve)
+    s = sub.add_parser("entities", help="list destination entities (wishlist products / scholarship cycles)")
+    s.add_argument("kind", choices=["wishlist", "scholarships"]); s.set_defaults(fn=cmd_entities)
     s = sub.add_parser("sync-skip", help="exclude records from Google sync (test junk); `sync <id>` re-includes")
     s.add_argument("ids", nargs="*"); s.add_argument("--all-pending", action="store_true"); s.set_defaults(fn=cmd_sync_skip)
     sub.add_parser("google-setup", help="one-time: pick/create the destination docs, folders and sheet; persists IDs").set_defaults(fn=cmd_google_setup)
-    s = sub.add_parser("list"); s.add_argument("--limit", type=int, default=20); s.set_defaults(fn=cmd_list)
+    s = sub.add_parser("list", help="history: saved records and unsaved reviews, newest first")
+    s.add_argument("--limit", type=int, default=50); s.add_argument("--saved-only", action="store_true"); s.set_defaults(fn=cmd_list)
 
     s = sub.add_parser("batch", help="ingest many: file lines `URL | destination | instruction`")
     s.add_argument("file")
