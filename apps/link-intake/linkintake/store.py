@@ -100,6 +100,7 @@ def history(n: int = 50, include_pending: bool = True) -> list[dict]:
             "master_status": (ex.get("master_sync") or {}).get("status", ""), "destination_status": (ex.get("destination_sync") or {}).get("status", ""),
             "last_error": ex.get("last_error", "") or (ex.get("destination_sync") or {}).get("last_error", ""),
             "resolution": (r.get("destination_resolution") or {}).get("action", ""), "resolution_label": (r.get("destination_resolution") or {}).get("candidate_label", ""),
+            "bulk_run": (r.get("batch") or {}).get("run_id", ""), "bulk_origin": (r.get("batch") or {}).get("source_origin", ""), "bulk_container": (r.get("batch") or {}).get("source_container", ""),
             "google_ref": (ex.get("destination_sync") or {}).get("remote_ref", "") or (ex.get("master_sync") or {}).get("remote_ref", ""),
         })
     rows.sort(key=lambda x: x.get("saved_at") or x["created_at"], reverse=True)

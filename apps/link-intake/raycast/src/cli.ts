@@ -37,6 +37,7 @@ export type HistoryRow = {
   instruction: string; created_at: string; saved_at: string; saved: boolean; status: string; confidence: number;
   export_status: string; sync_line: string; google_ref: string;
   master_status: string; destination_status: string; last_error: string; resolution: string; resolution_label: string;
+  bulk_run?: string; bulk_origin?: string; bulk_container?: string;
 };
 
 export type IntakeRecord = {

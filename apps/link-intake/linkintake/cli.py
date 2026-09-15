@@ -163,6 +163,76 @@ def cmd_entities(a) -> int:
     return 0
 
 
+def _cand_line(c: dict) -> str:
+    return (f"{c['id']}  [{c['status']:8s}] {DESTINATIONS.get(c['inferred_destination'], c['inferred_destination']):30s} "
+            f"d={c['destination_confidence']:.2f} i={c['intent_confidence']:.2f}  {c['source_origin']}:{c['source_container'][:22]}\n"
+            f"       {c['canonical_url']}\n       instruction: {c['inferred_instruction'][:110]}\n       why: {c['reason'][:140]}")
+
+
+def cmd_bulk(a) -> int:
+    from . import bulk
+    if a.action == "scan":
+        sources = [x.strip() for x in a.sources.split(",") if x.strip()]
+        items = []
+        for src in sources:
+            if src == "reminders":
+                items += bulk.discover_reminders(include_completed=a.include_completed, lists=[x.strip() for x in a.lists.split(",")] if a.lists else None)
+            elif src == "notes":
+                items += bulk.discover_notes(limit=a.notes_limit)
+            elif src == "manifest":
+                items += bulk.discover_manifest()
+            elif src.startswith("file:"):
+                items += bulk.discover_file(src[5:])
+            else:
+                raise SystemExit(f"unknown source {src} (reminders|notes|manifest|file:<path>)")
+        cands = bulk.build_candidates(items)
+        if a.limit:
+            cands = cands[: a.limit]
+        run_id = bulk.new_run(cands, sources)
+        summ = bulk.summary(cands)
+        if a.json:
+            print(json.dumps({"run_id": run_id, "summary": summ, "candidates": cands}, ensure_ascii=False))
+        else:
+            print(f"bulk run {run_id}: {summ['found']} links found · {summ['existing']} already ingested · {summ['ready']} high-confidence ready · "
+                  f"{summ['review']} need review · {summ['invalid']} invalid/unsupported\n(no extraction, no Google writes yet)\n")
+            for c in cands:
+                print(_cand_line(c))
+        return 0
+    run = bulk.load_run(a.run)
+    if a.action == "status":
+        _out({"run_id": run["run_id"], **bulk.summary(run["candidates"])}, a.json)
+        return 0
+    if a.action == "review":
+        changed = []
+        for cid in a.approve or []:
+            changed.append(bulk.review_update(run, cid, approve=True))
+        if a.approve_all:
+            for c in run["candidates"]:
+                if c["status"] in ("review", "ready") and (not a.origin or c["source_origin"] == a.origin):
+                    changed.append(bulk.review_update(run, c["id"], approve=True))
+        for cid, dest in a.dest or []:
+            changed.append(bulk.review_update(run, cid, dest=dest))
+        for cid, ins in a.instruction or []:
+            changed.append(bulk.review_update(run, cid, instruction=ins))
+        for cid in a.skip or []:
+            changed.append(bulk.review_update(run, cid, skip=True))
+        if changed:
+            bulk.save_run(run)
+        rows = [c for c in run["candidates"] if c["status"] == "review"] if not changed else changed
+        if a.json:
+            print(json.dumps(rows, ensure_ascii=False))
+        else:
+            print(f"run {run['run_id']} · {bulk.summary(run['candidates'])}")
+            for c in rows:
+                print(_cand_line(c))
+        return 0
+    if a.action == "run":
+        report = bulk.run_batch(run, dry_run=not a.execute, limit=a.limit, delay=a.delay)
+        _out(report, a.json)
+        return 0 if report["failed"] == 0 else 1
+    return 2
+
+
 def cmd_google_setup(a) -> int:
     from . import google_setup
     google_setup.run()
@@ -331,6 +401,19 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--into", metavar="CANONICAL_KEY"); s.set_defaults(fn=cmd_entities)
     s = sub.add_parser("sync-skip", help="exclude records from Google sync (test junk); `sync <id>` re-includes")
     s.add_argument("ids", nargs="*"); s.add_argument("--all-pending", action="store_true"); s.set_defaults(fn=cmd_sync_skip)
+    s = sub.add_parser("bulk", help="bulk ingest from Reminders/Notes/manifest/file: scan -> review -> run (dry-run by default)")
+    s.add_argument("action", choices=["scan", "review", "run", "status"])
+    s.add_argument("--sources", default="reminders,notes,manifest", help="comma list: reminders,notes,manifest,file:<path>")
+    s.add_argument("--lists", default="", help="scan: only these Reminders lists (comma separated)")
+    s.add_argument("--include-completed", action="store_true"); s.add_argument("--notes-limit", type=int, default=400)
+    s.add_argument("--limit", type=int, default=0, help="scan: keep first N candidates; run: process at most N")
+    s.add_argument("--run", default="", help="run id (default: latest)")
+    s.add_argument("--approve", nargs="*", metavar="ID"); s.add_argument("--approve-all", action="store_true"); s.add_argument("--origin", default="")
+    s.add_argument("--dest", nargs=2, action="append", metavar=("ID", "DESTINATION")); s.add_argument("--instruction", nargs=2, action="append", metavar=("ID", "TEXT"))
+    s.add_argument("--skip", nargs="*", metavar="ID")
+    s.add_argument("--execute", action="store_true", help="run: actually process (default is dry-run preview)")
+    s.add_argument("--delay", type=float, default=2.0, help="run: seconds between items")
+    s.set_defaults(fn=cmd_bulk)
     sub.add_parser("google-setup", help="one-time: pick/create the destination docs, folders and sheet; persists IDs").set_defaults(fn=cmd_google_setup)
     s = sub.add_parser("list", help="history: saved records and unsaved reviews, newest first")
     s.add_argument("--limit", type=int, default=50); s.add_argument("--saved-only", action="store_true"); s.set_defaults(fn=cmd_list)
