@@ -1,0 +1,19 @@
+[project]
+name = "linkintake"
+version = "0.1.0"
+description = "Universal link intake: classify a URL, ingest context, extract what Nik cares about, export to Google Docs."
+requires-python = ">=3.12"
+dependencies = [
+  "anthropic>=0.80",
+  "mcp>=1.12,<2",
+]
+
+[project.scripts]
+linkintake = "linkintake.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["linkintake"]

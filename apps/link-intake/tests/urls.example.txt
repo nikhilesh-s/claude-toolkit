@@ -1,0 +1,7 @@
+# One intake per line:  URL | destination | instruction
+# Destinations: wishlist, supplement_ideas, design_inspo, scholarships, personal_ig, inbox
+# Copy this file to tests/urls.txt (git-ignored) and paste links from Apple Notes / Reminders / Instagram saves.
+# Run:  linkintake batch tests/urls.txt            (review only)
+#       linkintake batch tests/urls.txt --save     (save + export)
+https://www.youtube.com/watch?v=jNQXAC9IVRw | personal_ig | how the first video on YouTube frames its one subject
+https://en.wikipedia.org/wiki/Instagram | inbox | reference on Instagram history

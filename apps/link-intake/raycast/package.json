@@ -1,0 +1,48 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "link-intake",
+  "title": "Link Intake",
+  "description": "Paste a URL, pick where it goes, say what you care about. Backed by the linkintake CLI.",
+  "icon": "icon.png",
+  "author": "nikhilesh-s",
+  "license": "MIT",
+  "categories": ["Productivity"],
+  "commands": [
+    {
+      "name": "intake-link",
+      "title": "Intake Link",
+      "subtitle": "Link Intake",
+      "description": "Ingest a URL into your intake bank",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "cliPath",
+      "type": "textfield",
+      "required": false,
+      "title": "linkintake CLI path",
+      "description": "Defaults to ~/.local/bin/linkintake (installed by apps/link-intake/setup.sh)",
+      "default": "",
+      "placeholder": "~/.local/bin/linkintake"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.100.0",
+    "@raycast/utils": "^1.19.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.4.0"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "publish": "echo 'private extension; not published'"
+  }
+}
