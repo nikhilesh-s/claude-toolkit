@@ -30,21 +30,26 @@ CONTAINER_HINTS = [
     ("personal_ig", r"instagram|reel|content|film|video|photo|edit"),
 ]
 TEXT_HINTS = [
-    ("wishlist", r"\b(want|buy|cop|need|order|price|wishlist|wish list|desk setup|charger|setup|for my (dorm|room|desk)|link to buy|purchase|get this)\b"),
-    ("scholarships", r"\b(scholarship|deadline|apply|application|award|grant)\b"),
+    ("wishlist", r"\b(want|buy|cop|need|order|price|wishlist|wish list|desk setup|charger|setup|for my (dorm|room|desk)|link to buy|purchase|get this|products?)\b"),
+    ("scholarships", r"\b(scholarship|scholars|deadline|apply|application|award|grant|opportunity)\b"),
     ("supplement_ideas", r"\b(essay|supplement|supplemental|metaphor|framing of (the|this) (idea|story|essay)|opening line|why major|personal statement|prompt|thesis|argument|writing)\b"),
-    ("personal_ig", r"\b(shot|shots|framing|angle|edit|editing|transition|transitions|hook|film|filmed|lighting|cinematic|b-?roll|pacing|color grade|how (this|the) (reel|video) (is|was) (shot|made|edited)|reel idea|post idea|content idea)\b"),
-    ("design_inspo", r"\b(design|layout|font|typography|ui|ux|color palette|palette|logo|poster|animation|website|landing page)\b"),
+    ("personal_ig", r"\b(shot|shots|framing|angle|edit|editing|transition|transitions|hook|film|filmed|filming|lighting|cinematic|b-?roll|pacing|color grade|how (this|the) (reel|video) (is|was) (shot|made|edited)|reel idea|post idea|content idea|shooting)\b"),
+    ("design_inspo", r"\b(design|layout|font|typography|ui|ux|interface|color palette|palette|logo|poster|animation|website|landing page|packaging)\b"),
 ]
 # words that name the destination outright; enough on their own for a confident destination
 STRONG_WORDS = {
-    "wishlist": r"\b(wishlist|wish list|for my dorm|dorm room|buy this|want this|cop this)\b",
-    "scholarships": r"\b(scholarships?|scholars)\b",
+    "wishlist": r"\b(wishlist|wish list|for my dorm|dorm room|want this|buy this|cop this|need this|order this|find (this|these) products?|what product is this|desk product)\b",
+    "scholarships": r"\b(scholarships?|scholars|grant|award opportunity)\b",
     "supplement_ideas": r"\b(supplement(al)?|essay|personal statement|common app)\b",
-    "design_inspo": r"\b(design inspo|ui inspo|inspo|typography)\b",
-    "personal_ig": r"\b(reel idea|content idea|post idea|video inspo|filmmaking|cinematic|b-?roll|transitions?)\b",
+    "design_inspo": r"\b(design inspo|ui inspo|website inspo|layout|interface|graphic design|product design|visual system|typography|packaging|industrial design)\b",
+    "personal_ig": r"\b(video inspo|reel inspo|filming inspo|content inspo|shooting inspo|editing inspo|camera angle|framing|transitions?|pacing|hook idea|shot idea|filmmaking|cinematic|b-?roll|reel idea|content idea|post idea)\b",
 }
-WORK_LINK = re.compile(r"(github\.com|gitlab\.com|supabase\.co|tally\.so|notion\.so|figma\.com/file|docs\.google\.com|drive\.google\.com|localhost|vercel\.app|\.edu/)", re.I)
+WORK_LINK = re.compile(r"(github\.com|gitlab\.com|supabase\.co|tally\.so|notion\.so|figma\.com/file|docs\.google\.com|drive\.google\.com|localhost|vercel\.app|vercel\.com|netlify\.app|\.edu/|readthedocs|developer\.|docs\.|dashboard|console\.|app\.[a-z0-9-]+\.(org|com|io)/?$|linear\.app|slack\.com|discord\.com|zoom\.us)", re.I)
+MANIFEST_INSTRUCTION = "Identify the exact product, brand, model, variant, price if supported, and useful buying details."
+# On a work/tooling URL only wording that names the destination outright keeps it; technique words ("pacing", "layout") do not.
+EXPLICIT_ON_WORK_LINK = re.compile(r"\b(wishlist|wish list|want this|buy this|need this|scholarships?|scholars|grant|supplement(al)?|essay|personal statement|"
+                                   r"design inspo|ui inspo|website inspo|graphic design|product design|visual system|industrial design|"
+                                   r"video inspo|reel inspo|filming inspo|content inspo|shooting inspo|editing inspo|reel idea|content idea|post idea)\b", re.I)
 
 GENERIC_INSTRUCTION = {
     "wishlist": "Identify the product shown so I can add it to my wishlist.",
@@ -218,12 +223,16 @@ def infer(container: str, context: str, url: str) -> tuple[str, float, str, floa
     else:
         dest, dconf = ("inbox", 0.5)
         reasons.append("no explicit context")
-    if WORK_LINK.search(url) and dest != "scholarships":
-        dconf = min(dconf, 0.6)
-        reasons.append("looks like a work/tooling link")
+    if WORK_LINK.search(url) and not c_hit and not EXPLICIT_ON_WORK_LINK.search(ctx):
+        why = "work/tooling link outside current intake destinations" + (f" (only weak wording: {', '.join(DESTINATIONS[d] for d in t_hits)})" if t_hits else "")
+        return "skip", 0.0, "", 0.0, why
     words = [w for w in re.sub(URL_RE, "", context or "").split() if w.strip("-–—:|•")]
     if len(words) >= 3:
         instruction, iconf = context.strip(), 0.85
+    elif words and dest in strong:
+        # a short but explicit phrase ("video inspo", "wishlist") is a clear intent; make the instruction useful
+        instruction, iconf = f"{context.strip()} — {GENERIC_INSTRUCTION[dest]}", 0.85
+        reasons.append("short explicit phrase, generic detail appended")
     elif words:
         instruction, iconf = context.strip(), 0.7  # verbatim, so exact-intake checks still match; short -> review
         reasons.append("very short context")
@@ -246,7 +255,12 @@ def build_candidates(items: list[dict]) -> list[dict]:
                 canon = canonicalize(url)
             except Exception:
                 canon, err = url, err or "unparseable"
-            dest, dconf, instr, iconf, reason = infer(it.get("container", ""), ctx, url)
+            if it["origin"] == "manifest":  # explicit Wishlist/product backlog
+                dest, dconf, instr, iconf, reason = "wishlist", 0.9, MANIFEST_INSTRUCTION, 0.85, "old Reel manifest = Wishlist product backlog"
+            else:
+                dest, dconf, instr, iconf, reason = infer(it.get("container", ""), ctx, url)
+            if dest == "skip":
+                err = err or reason
             key = f"{canon}|{dest}|{normalize_instruction(instr)}" if not err else f"{canon}|invalid"
             prov = {"origin": it["origin"], "container": it.get("container", ""), "title": it.get("title", ""), "context": ctx}
             if key in cands:  # same URL, same meaning: one candidate, several provenances
@@ -257,12 +271,14 @@ def build_candidates(items: list[dict]) -> list[dict]:
                  "inferred_instruction": instr, "intent_confidence": round(iconf, 2), "reason": reason,
                  "existing_intake_match": "", "status": "ready", "provenance": [prov]}
             if err:
-                c["status"], c["reason"] = "invalid", err
+                invalid = err != reason or dest != "skip"  # a private/unparseable URL is invalid even if it also looks like tooling
+                c["status"], c["reason"] = ("invalid" if invalid else "skip"), err
+                c["inferred_destination"] = "inbox" if dest == "skip" else dest
             cands[key] = c
     out = []
     for n, c in enumerate(cands.values(), 1):
         c["id"] = f"c{n:03d}"
-        if c["status"] == "invalid":
+        if c["status"] in ("invalid", "skip"):
             out.append(c)
             continue
         exact = store.find_exact(dedupe_key(c["canonical_url"], c["inferred_destination"], c["inferred_instruction"]))
@@ -280,6 +296,34 @@ def build_candidates(items: list[dict]) -> list[dict]:
                 c["reason"] += f"; same URL saved before with a different intent ({', '.join(e['id'] for e in same_url)}) — OK"
         if c["status"] == "ready" and (c["destination_confidence"] < AUTO_THRESHOLD or c["intent_confidence"] < AUTO_THRESHOLD):
             c["status"] = "review"
+        out.append(c)
+    return out
+
+
+def from_explicit(specs: list[dict]) -> list[dict]:
+    """Candidates the user supplied directly: {url, destination, instruction, context, origin, container,
+    instruction_origin}. No inference; existing-intake checks still apply; status 'approved'."""
+    from .records import normalize_destination
+    out = []
+    for n, sp in enumerate(specs, 1):
+        url = sp["url"].strip()
+        canon = canonicalize(url)
+        dest = normalize_destination(sp["destination"])
+        c = {"id": f"c{n:03d}", "original_url": url, "canonical_url": canon, "source_origin": sp.get("origin", "explicit"),
+             "source_container": sp.get("container", ""), "source_context": sp.get("context", ""),
+             "inferred_destination": dest, "destination_confidence": 1.0, "inferred_instruction": sp["instruction"],
+             "intent_confidence": 1.0, "instruction_origin": sp.get("instruction_origin", "inferred"),
+             "reason": "explicitly supplied", "existing_intake_match": "", "status": "approved",
+             "provenance": [{"origin": sp.get("origin", "explicit"), "container": sp.get("container", ""), "title": "", "context": sp.get("context", "")}]}
+        exact = store.find_exact(dedupe_key(canon, dest, sp["instruction"]))
+        same_url = store.find_by_url(canon)
+        if exact:
+            c["status"], c["existing_intake_match"], c["reason"] = "existing", exact["id"], f"already ingested as {exact['id']} (same URL, destination, instruction)"
+        elif same_url:
+            same_dest = [e["id"] for e in same_url if e["destination"] == dest]
+            c["existing_intake_match"] = ", ".join(e["id"] for e in same_url)
+            c["reason"] = ("same URL already saved to this destination with a different instruction: " + ", ".join(same_dest)) if same_dest else \
+                          ("same URL saved before with a different intent: " + ", ".join(e["id"] for e in same_url) + " (new intake is legitimate)")
         out.append(c)
     return out
 
@@ -358,7 +402,8 @@ def run_batch(run: dict, *, dry_run: bool = True, limit: int = 0, delay: float =
         try:
             rec = pipeline.ingest(c["original_url"], c["inferred_destination"], c["inferred_instruction"], save=True,
                                   batch={"run_id": run["run_id"], "candidate_id": c["id"], "source_origin": c["source_origin"],
-                                         "source_container": c["source_container"], "source_context": c["source_context"]})
+                                         "source_container": c["source_container"], "source_context": c["source_context"],
+                                         "instruction_origin": c.get("instruction_origin", "inferred")})
             res = rec.get("destination_resolution") or {}
             ex = rec.get("export") or {}
             c.update({"status": "failed" if rec["status"] == "failed" else "done", "record_id": rec["id"], "record_status": rec["status"],
@@ -383,5 +428,6 @@ def run_batch(run: dict, *, dry_run: bool = True, limit: int = 0, delay: float =
             report["failed"] += 1
         report["items"].append({k: c.get(k) for k in ("id", "canonical_url", "inferred_destination", "status", "record_id", "resolution", "export_status", "error")})
         save_run(run)  # resumable after every item
+        print(f"[bulk] {c['id']} {c['status']} {c.get('record_id', '')} {c.get('resolution', '')} {c.get('export_status', '')} {c.get('error', '')}", flush=True)
         time.sleep(delay)
     return report

@@ -147,7 +147,20 @@ def main():
         assert store.load(stray["id"])["destination_resolution"]["entity_key"] == rbase["entity_key"]
         assert entities.absorb("wishlist", stray_key, rbase["entity_key"])["absorbed"] == []  # idempotent
 
-    print("test_entities: ok (cases 1-11, 13, D-G, matcher robustness, absorb)")
+    # identifier hygiene: "not found" / "N/A" never match each other; detach undoes a wrong merge
+    n1 = rec("https://example.com/n1", "wishlist", "backpack", {"brand": "Level8", "model": "Commuter Backpack", "identifier": "not found"})
+    r1 = entities.resolve(n1)
+    n2 = rec("https://example.com/n2", "wishlist", "toothbrush", {"brand": "Illume", "model": "3-in-1 oral care kit", "identifier": "not found"})
+    r2 = entities.resolve(n2)
+    assert r2["action"] == "created" and r2["entity_key"] != r1["entity_key"], r2
+    # simulate the old wrong merge, then detach
+    ents = entities.load("wishlist"); e1 = next(e for e in ents if e["key"] == r1["entity_key"]); e1["record_ids"].append(n2["id"]); e1["source_urls"].append(n2["source"]["original_url"]); entities.save("wishlist", [e for e in ents if e["key"] != r2["entity_key"]])
+    n2["destination_resolution"] = {"action": "merged", "entity_key": r1["entity_key"]}; store.write(n2)
+    out = entities.detach("wishlist", r1["entity_key"], n2["id"])
+    assert out["detached"] and out["entity_remaining"] == [n1["id"]] and out["record_resolution"]["action"] == "created"
+    e1 = entities.get("wishlist", r1["entity_key"]); assert n2["id"] not in e1["record_ids"] and n2["source"]["original_url"] not in e1["source_urls"]
+
+    print("test_entities: ok (cases 1-11, 13, D-G, matcher robustness, absorb, identifier hygiene, detach)")
 
 
 if __name__ == "__main__":

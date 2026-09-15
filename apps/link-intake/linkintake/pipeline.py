@@ -223,11 +223,15 @@ def save_record(record_id: str, force: bool = False) -> dict:
         raise DuplicateError(f"{record_id} is already saved. Use --force to export it again.")
     if rec.get("exact_duplicate") and not force:
         raise DuplicateError(f"Already saved as {rec['exact_duplicate']} (same URL + destination + instruction). Use --force to save anyway.")
+    no_extraction = rec["processing"].get("llm_backend") in ("none", "") and not rec["extraction"].get("focused_result") and rec["intent"]["destination"] != "inbox"
+    if no_extraction and rec["status"] != "failed":
+        rec["status"] = "failed"  # extraction never ran: audit copy only, and never a "completed intake" for dedupe
+        rec["errors"].append("save: extraction did not run; not exported")
     rec["saved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     store.save(rec)  # 1. local canonical record committed first; nothing below can undo this
     rec["cleanup"] = cleanup.cleanup_record(rec)
     if rec["status"] == "failed":
-        # audit copy only: a record with no usable context must never seed an entity or a Google row
+        # audit copy only: a record with no usable context/extraction must never seed an entity or a Google row
         rec["export"] = {**rec.get("export", {}), "status": "skipped", "last_error": "not exported: processing failed (reprocess to retry)"}
         rec["destination_resolution"] = {"action": "n/a", "entity_key": "", "match_reasons": ["processing failed"], "contributing_record_ids": [rec["id"]]}
         store.write(rec)

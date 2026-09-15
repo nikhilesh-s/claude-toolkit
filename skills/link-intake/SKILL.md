@@ -92,7 +92,7 @@ existing intakes are marked `existing`; a same-URL, same-destination, new-instru
 - If `linkintake doctor` shows no working LLM backend, tell Nik the fix is
   `CLAUDE_CONFIG_DIR=~/.claude-nebula claude login` and stop; do not fabricate an extraction. Records still
   save locally with `status: needs_review`.
-- The Wishlist doc is not restructured: only its Media Queue tab receives staging blocks.
+- The Wishlist doc is not restructured: only its Intake Staging tab receives intake rows.
 - Prefer reprocessing with a sharper instruction over hand-editing exported docs.
 
 ## Raycast

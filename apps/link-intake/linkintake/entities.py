@@ -67,7 +67,7 @@ _ASIN = re.compile(r"\b(B0[A-Z0-9]{8})\b")
 # a real model/part number: letters+digits mixed, 5+ chars, at least 2 digits (NESA1V000, WH-1000XM5, A2338), never a plain word or "12-in-1"
 _MODEL_NO = re.compile(r"\b(?=[A-Z0-9-]{5,}\b)(?=[A-Z0-9-]*\d[A-Z0-9-]*\d)(?=[A-Z0-9-]*[A-Z])[A-Z0-9]+(?:-[A-Z0-9]+)*\b")
 _WATT = re.compile(r"\b(\d{2,4})\s?w\b", re.I)
-_UNKNOWN_VARIANT = re.compile(r"\b(not chosen|options?:|unspecified|varies|tbd|unknown)\b", re.I)
+_UNKNOWN_VARIANT = re.compile(r"\b(not chosen|options?:|unspecified|unconfirmed|varies|tbd|unknown|\w+ or \w+)\b", re.I)
 _MODEL_NOISE = {"combo", "set", "bundle", "pack", "version", "edition", "official", "new", "original", "model", "w", "watt", "watts"}
 
 
@@ -91,7 +91,9 @@ def model_numbers(*fields: str) -> set[str]:
 def wishlist_identity(rec: dict) -> dict:
     sd = rec["extraction"].get("structured_data", {}) or {}
     blob = " ".join(str(v) for v in sd.values())
-    ident = sd.get("identifier") or sd.get("asin") or sd.get("sku") or ""
+    ident = str(sd.get("identifier") or sd.get("asin") or sd.get("sku") or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{4,}", ident) or is_unknown(ident) or not re.search(r"\d", ident):
+        ident = ""  # "not found", "N/A", prose or a bare word is not a product identifier
     if not ident:
         m = _ASIN.search(blob)
         ident = m.group(1) if m else ""
@@ -410,6 +412,39 @@ def refresh_identity(ent: dict) -> dict:
     merged["variant_key"] = next((i["variant_key"] for i in idents if i["variant_key"]), "")
     ent["identity"] = merged
     return merged
+
+
+def detach(kind: str, entity_key: str, record_id: str) -> dict:
+    """Remove one record from an entity (wrong merge). The entity is rebuilt from its remaining records by
+    replaying the normal merge; the detached record is re-resolved on its own. Provenance is never lost."""
+    from . import store
+    ents = load(kind)
+    ent = next((e for e in ents if e["key"] == entity_key), None)
+    if not ent or record_id not in ent["record_ids"]:
+        return {"detached": False}
+    remaining = [r for r in ent["record_ids"] if r != record_id]
+    fields = WISHLIST_FIELDS if kind == "wishlist" else SCHOLAR_FIELDS
+    ent.update({"fields": {}, "record_ids": [], "source_urls": [], "history": [], "price_observations": []})
+    for rid in remaining:
+        try:
+            r = store.load(rid)
+        except FileNotFoundError:
+            continue
+        merge_fields(ent, r, fields, r["source"]["source_class"] in ("web_page", "google_workspace"))
+        if kind == "wishlist":
+            _observe_price(ent, r)
+        _touch(ent, r)
+    ent["primary_record_id"] = remaining[0] if remaining else ent.get("primary_record_id", "")
+    refresh_identity(ent)
+    if not remaining:
+        ents = [e for e in ents if e["key"] != entity_key]
+    save(kind, ents)
+    rec = store.load(record_id)
+    rec["destination_resolution"] = resolve(rec)
+    rec.setdefault("export", {}).setdefault("destination_sync", {})["status"] = "pending"
+    rec["export"]["status"] = "export_pending"
+    store.write(rec)
+    return {"detached": True, "entity_remaining": remaining, "record_resolution": rec["destination_resolution"]}
 
 
 def absorb(kind: str, stray_key: str, into_key: str) -> dict:
