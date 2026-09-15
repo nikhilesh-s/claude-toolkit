@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+tests/urls.txt
+raycast/node_modules/
+raycast/dist/
+raycast/raycast-env.d.ts

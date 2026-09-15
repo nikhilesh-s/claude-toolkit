@@ -1,0 +1,7 @@
+#!/bin/bash
+# Thin launcher: runs the linkintake CLI from its uv project. Safe to symlink into ~/.local/bin.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+SELF="$(readlink -f "$0")"
+PROJECT="$(cd "$(dirname "$SELF")/.." && pwd)"
+UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
+exec "$UV" run --quiet --project "$PROJECT" linkintake "$@"
