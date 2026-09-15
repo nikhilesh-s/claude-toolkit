@@ -1,9 +1,11 @@
-"""Minimal Google Docs/Sheets/Drive REST client on stdlib. Token JSON = the shape workspace-mcp
-(gswitch) stores: client_id, client_secret, refresh_token, token_uri. No credentials in code."""
+"""Minimal Google Docs/Sheets/Drive REST client on stdlib.
+
+Auth lives in ~/.link-intake/google/: client.json (Desktop OAuth client id/secret) and token.json (the
+personal account's refresh token). Nothing here reads gswitch, workspace-mcp, or any tunnel. Every request
+has a timeout so a slow Google never hangs a Raycast save."""
 from __future__ import annotations
 
 import json
-import os
 import time
 import urllib.error
 import urllib.parse
@@ -14,49 +16,60 @@ from . import config
 
 DOC_MIME = "application/vnd.google-apps.document"
 SHEET_MIME = "application/vnd.google-apps.spreadsheet"
+FOLDER_MIME = "application/vnd.google-apps.folder"
+GOOGLE_DIR = config.STATE_DIR / "google"
+CLIENT_PATH = GOOGLE_DIR / "client.json"
+TOKEN_PATH = GOOGLE_DIR / "token.json"
+DEFAULT_TIMEOUT = 15
 
 
 class GoogleError(RuntimeError):
     def __init__(self, status: int, body: str):
         super().__init__(f"Google API {status}: {body[:300]}")
         self.status = status
+        self.body = body
+
+    @property
+    def sheets_api_disabled(self) -> bool:
+        return self.status == 403 and "sheets.googleapis.com" in self.body
 
 
-def find_creds_path(cfg: dict | None = None) -> Path | None:
-    cfg = cfg or config.load()
-    explicit = cfg["google"].get("creds_path")
-    if explicit:
-        return config.expand(explicit)
-    own = config.STATE_DIR / "google-creds.json"
-    return own if own.exists() else None
+def is_configured() -> bool:
+    return CLIENT_PATH.exists() and TOKEN_PATH.exists()
 
 
 class Google:
-    def __init__(self, creds_path: Path | None = None):
-        self.path = creds_path or find_creds_path()
-        if not self.path or not self.path.exists():
-            raise GoogleError(401, "No Google credentials for the optional REST exporter (google.export_mode=rest needs google.creds_path).")
-        self.creds = json.loads(self.path.read_text())
-        self._token = self.creds.get("token", "")
-        self._exp = 0.0
-        self.account = self.path.stem if "@" in self.path.stem else ""
+    def __init__(self, timeout: int = DEFAULT_TIMEOUT):
+        if not is_configured():
+            raise GoogleError(401, "Google not authorized. Run `linkintake google-auth` (personal account).")
+        self.client = json.loads(CLIENT_PATH.read_text())
+        self.tok = json.loads(TOKEN_PATH.read_text())
+        self.account = self.tok.get("email", "")
+        self.timeout = timeout
+        self._access = self.tok.get("token", "")
+        self._exp = float(self.tok.get("expires_at", 0))
 
+    # ---- auth
     def token(self) -> str:
-        if self._token and time.time() < self._exp:
-            return self._token
+        if self._access and time.time() < self._exp - 60:
+            return self._access
         body = urllib.parse.urlencode({
-            "client_id": self.creds["client_id"], "client_secret": self.creds["client_secret"],
-            "refresh_token": self.creds["refresh_token"], "grant_type": "refresh_token",
-        }).encode()
-        req = urllib.request.Request(self.creds.get("token_uri", "https://oauth2.googleapis.com/token"), data=body)
+            "client_id": self.client["client_id"], "client_secret": self.client["client_secret"],
+            "refresh_token": self.tok["refresh_token"], "grant_type": "refresh_token"}).encode()
+        req = urllib.request.Request("https://oauth2.googleapis.com/token", data=body)
         try:
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
-            raise GoogleError(e.code, e.read().decode(errors="ignore")) from None
-        self._token = data["access_token"]
-        self._exp = time.time() + int(data.get("expires_in", 3600)) - 60
-        return self._token
+            raise GoogleError(e.code, "token refresh failed: " + e.read().decode(errors="ignore")) from None
+        except Exception as e:
+            raise GoogleError(0, f"token refresh unreachable: {type(e).__name__}: {e}") from None
+        self._access = data["access_token"]
+        self._exp = time.time() + int(data.get("expires_in", 3600))
+        self.tok.update({"token": self._access, "expires_at": self._exp})
+        TOKEN_PATH.write_text(json.dumps(self.tok, indent=2))
+        TOKEN_PATH.chmod(0o600)
+        return self._access
 
     def request(self, method: str, url: str, body: dict | None = None, params: dict | None = None) -> dict:
         if params:
@@ -65,20 +78,26 @@ class Google:
         req = urllib.request.Request(url, data=data, method=method, headers={
             "Authorization": "Bearer " + self.token(), "Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 raw = r.read()
                 return json.loads(raw) if raw else {}
         except urllib.error.HTTPError as e:
             raise GoogleError(e.code, e.read().decode(errors="ignore")) from None
+        except Exception as e:  # timeouts, DNS, offline
+            raise GoogleError(0, f"unreachable: {type(e).__name__}: {e}") from None
 
     # ---- Drive
-    def drive_find(self, name: str, mime: str, parent: str = "") -> str | None:
-        q = f"name = '{name}' and mimeType = '{mime}' and trashed = false"
+    def drive_search(self, q: str, fields: str = "id,name,mimeType,parents,modifiedTime", page_size: int = 25) -> list[dict]:
+        res = self.request("GET", "https://www.googleapis.com/drive/v3/files",
+                           params={"q": q + " and trashed = false", "fields": f"files({fields})", "pageSize": page_size,
+                                   "orderBy": "modifiedTime desc", "includeItemsFromAllDrives": "true", "supportsAllDrives": "true"})
+        return res.get("files", [])
+
+    def drive_find_by_name(self, name: str, mime: str, parent: str = "", contains: bool = False) -> list[dict]:
+        q = f"name {'contains' if contains else '='} '{name.replace(chr(39), chr(92) + chr(39))}' and mimeType = '{mime}'"
         if parent:
             q += f" and '{parent}' in parents"
-        res = self.request("GET", "https://www.googleapis.com/drive/v3/files", params={"q": q, "fields": "files(id,name)", "pageSize": 5})
-        files = res.get("files", [])
-        return files[0]["id"] if files else None
+        return self.drive_search(q)
 
     def drive_create(self, name: str, mime: str, parent: str = "") -> str:
         body = {"name": name, "mimeType": mime}
@@ -86,12 +105,25 @@ class Google:
             body["parents"] = [parent]
         return self.request("POST", "https://www.googleapis.com/drive/v3/files", body=body, params={"fields": "id"})["id"]
 
-    def find_or_create(self, name: str, mime: str, parent: str = "") -> str:
-        return self.drive_find(name, mime, parent) or self.drive_create(name, mime, parent)
-
     def drive_meta(self, file_id: str) -> dict:
         return self.request("GET", f"https://www.googleapis.com/drive/v3/files/{file_id}",
-                            params={"fields": "id,name,mimeType,owners(emailAddress),modifiedTime,webViewLink", "supportsAllDrives": "true"})
+                            params={"fields": "id,name,mimeType,parents,owners(emailAddress),modifiedTime,webViewLink", "supportsAllDrives": "true"})
+
+    def drive_path(self, file_id: str, depth: int = 4) -> str:
+        """'My Drive / College Applications / Scholarships' for display during setup."""
+        parts = []
+        cur = file_id
+        for _ in range(depth):
+            try:
+                m = self.drive_meta(cur)
+            except GoogleError:
+                break
+            parts.append(m.get("name", "?"))
+            parents = m.get("parents") or []
+            if not parents:
+                break
+            cur = parents[0]
+        return " / ".join(reversed(parts))
 
     # ---- Docs
     def doc_get(self, doc_id: str) -> dict:
@@ -100,8 +132,20 @@ class Google:
     def doc_batch(self, doc_id: str, requests: list[dict]) -> dict:
         return self.request("POST", f"https://docs.googleapis.com/v1/documents/{doc_id}:batchUpdate", body={"requests": requests})
 
+    def doc_add_tab(self, doc_id: str, title: str) -> str:
+        """Add a top-level tab at the end; returns its tabId. Other tabs untouched."""
+        n = len(self.doc_get(doc_id).get("tabs", []))
+        res = self.doc_batch(doc_id, [{"addDocumentTab": {"tabProperties": {"title": title, "index": max(n, 1)}}}])
+        for reply in res.get("replies", []):
+            for key in ("addDocumentTab", "createDocumentTab"):
+                if key in reply:
+                    return reply[key].get("tabProperties", {}).get("tabId", "")
+        for t in _walk_tabs(self.doc_get(doc_id).get("tabs", [])):  # fallback: find by title
+            if t["tabProperties"].get("title") == title:
+                return t["tabProperties"]["tabId"]
+        raise GoogleError(500, "addDocumentTab returned no tabId")
+
     def doc_append_text(self, doc_id: str, text: str, tab_id: str = "") -> None:
-        """Append plain text at the end of the body (or the given tab). Narrow, idempotency is the caller's job."""
         loc: dict = {"segmentId": ""}
         if tab_id:
             loc["tabId"] = tab_id
@@ -109,8 +153,8 @@ class Google:
 
     def doc_append_table_row(self, doc_id: str, cells: list[str], header: list[str], tab_id: str = "",
                              link_columns: tuple[int, ...] = ()) -> None:
-        """Append one row to the last table in the doc/tab; create the table (with header) if absent.
-        Fresh read before every mutation; cell writes applied highest index first (safe-edit protocol)."""
+        """Append one row to the last table in the doc/tab; create the table with a header if absent.
+        Fresh read before every mutation; writes applied highest index first (safe-edit protocol)."""
         body = self._body(self.doc_get(doc_id), tab_id)
         tables = [e for e in body.get("content", []) if "table" in e]
         loc: dict = {"segmentId": ""}
@@ -129,8 +173,7 @@ class Google:
         if tab_id:
             start["tabId"] = tab_id
         self.doc_batch(doc_id, [{"insertTableRow": {
-            "tableCellLocation": {"tableStartLocation": start, "rowIndex": last_row, "columnIndex": 0},
-            "insertBelow": True}}])
+            "tableCellLocation": {"tableStartLocation": start, "rowIndex": last_row, "columnIndex": 0}, "insertBelow": True}}])
         body = self._body(self.doc_get(doc_id), tab_id)
         table = [e for e in body.get("content", []) if "table" in e][-1]
         self._fill_row(doc_id, table, -1, cells, tab_id, link_columns)
@@ -140,10 +183,8 @@ class Google:
         writes = []
         for ci, cell in enumerate(row["tableCells"]):
             text = (values[ci] if ci < len(values) else "") or ""
-            if not text:
-                continue
-            idx = cell["content"][0]["startIndex"]
-            writes.append((idx, text, ci in link_columns))
+            if text:
+                writes.append((cell["content"][0]["startIndex"], text, ci in link_columns))
         reqs: list[dict] = []
         for idx, text, is_link in sorted(writes, key=lambda w: -w[0]):
             loc = {"index": idx}
@@ -164,7 +205,7 @@ class Google:
             for tab in _walk_tabs(doc.get("tabs", [])):
                 if tab["tabProperties"]["tabId"] == tab_id:
                     return tab["documentTab"]["body"]
-            raise GoogleError(404, f"tab {tab_id} not found")
+            raise GoogleError(404, f"tab {tab_id} not found in document")
         if doc.get("tabs"):
             return doc["tabs"][0]["documentTab"]["body"]
         return doc.get("body", {})
@@ -174,13 +215,18 @@ class Google:
         self.request("POST", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{urllib.parse.quote(rng)}:append",
                      body={"values": values}, params={"valueInputOption": "USER_ENTERED", "insertDataOption": "INSERT_ROWS"})
 
-    def sheet_values(self, sheet_id: str, rng: str = "A1:Z200") -> list[list[str]]:
+    def sheet_values(self, sheet_id: str, rng: str = "A1:Z500") -> list[list[str]]:
         return self.request("GET", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{urllib.parse.quote(rng)}").get("values", [])
 
     def sheet_get(self, sheet_id: str) -> dict:
         return self.request("GET", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}", params={"fields": "properties.title,sheets.properties"})
 
-    # ---- Slides
+    def sheet_create(self, title: str, parent: str, header: list[str]) -> str:
+        sid = self.drive_create(title, SHEET_MIME, parent)
+        self.sheet_append(sid, [header])
+        return sid
+
+    # ---- Slides (read-only, for the google_workspace source adapter)
     def slides_get(self, pres_id: str) -> dict:
         return self.request("GET", f"https://slides.googleapis.com/v1/presentations/{pres_id}")
 
@@ -189,6 +235,10 @@ def _walk_tabs(tabs: list[dict]):
     for t in tabs:
         yield t
         yield from _walk_tabs(t.get("childTabs", []))
+
+
+def doc_tabs(doc: dict) -> list[dict]:
+    return [{"id": t["tabProperties"]["tabId"], "title": t["tabProperties"].get("title", "")} for t in _walk_tabs(doc.get("tabs", []))]
 
 
 def doc_text(doc: dict, tab_id: str = "") -> str:
@@ -220,9 +270,13 @@ def _elements_text(elements: list[dict]) -> str:
     return "".join(parts)
 
 
-def doc_url(doc_id: str) -> str:
-    return f"https://docs.google.com/document/d/{doc_id}/edit"
+def doc_url(doc_id: str, tab_id: str = "") -> str:
+    return f"https://docs.google.com/document/d/{doc_id}/edit" + (f"?tab={tab_id}" if tab_id else "")
 
 
 def sheet_url(sheet_id: str) -> str:
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
+
+
+def folder_url(folder_id: str) -> str:
+    return f"https://drive.google.com/drive/folders/{folder_id}"

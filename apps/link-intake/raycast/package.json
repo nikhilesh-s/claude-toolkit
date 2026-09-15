@@ -14,6 +14,13 @@
       "subtitle": "Link Intake",
       "description": "Ingest a URL into your intake bank",
       "mode": "view"
+    },
+    {
+      "name": "sync-pending",
+      "title": "Sync Pending",
+      "subtitle": "Link Intake",
+      "description": "Retry Google Docs/Sheets exports for records saved while Google was unavailable",
+      "mode": "no-view"
     }
   ],
   "preferences": [

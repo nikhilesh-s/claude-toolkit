@@ -20,12 +20,25 @@ Raycast: `cd raycast && npm run dev` once (registers the dev extension), or Rayc
 pick `apps/link-intake/raycast`. The command is **Intake Link**. It reads the clipboard URL, remembers
 the last destination, and calls the CLI at `~/.local/bin/linkintake` (changeable in the extension preferences).
 
-## Auth
+## Auth (one time)
 
 | What | Why | How |
 |---|---|---|
-| Claude login | extraction step (`claude -p`, your Claude Max plan) | `CLAUDE_CONFIG_DIR=~/.claude-nebula claude login`. No API key needed; `ANTHROPIC_API_KEY` is only an alternative. |
-| Google | **not required for V1** | Records save locally with `export: {status: export_pending}`. A Claude session with a Google Drive connector runs `linkintake exports`, writes the rows/blocks, then `linkintake mark-exported <id>`. The stdlib REST exporter remains as an optional fallback (`google.export_mode=rest` + `google.creds_path`). |
+| Claude login | extraction (`claude -p`, your Claude Max plan) | `CLAUDE_CONFIG_DIR=~/.claude-nebula claude login` |
+| Google, personal account | Google Docs/Sheets export on every Save | `linkintake google-auth` (Desktop OAuth client, loopback on port 8792, refuses `.edu` accounts) then `linkintake google-setup` (pick/create the destination docs, folders and sheet; exact IDs persisted) |
+
+Files: `~/.link-intake/google/client.json` (OAuth client id/secret) and `token.json` (refresh token), both mode 600.
+Nothing reads gswitch, workspace-mcp or the Tailscale Funnel; the gswitch Cloud project is reused only as the
+OAuth app registration.
+
+## Sync behaviour
+
+Save = (1) local canonical record committed, (2) Master Intake row, (3) destination write, (4) a bounded sweep
+of older pending records. Google failures never fail the save: `export.status` becomes `partial` or
+`export_pending` with the exact error, and the next successful save or `linkintake sync` retries oldest first.
+Every remote row/entry carries the Record ID and is checked before appending, so retries cannot duplicate.
+Per record: `export.master_sync` and `export.destination_sync` each track status, remote file id/ref,
+last_attempt, last_error, synced_at. Google calls time out at 15 s each.
 
 ## CLI
 
@@ -35,8 +48,9 @@ linkintake ingest <url> -d wishlist -i "identify this desk lamp" --save
 linkintake save <id> [--force]         # pending record -> store + Google + cleanup
 linkintake reprocess <id> -i "..."     # new instruction/destination, media cache reused
 linkintake batch tests/urls.txt --save # URL | destination | instruction per line
-linkintake exports                     # records awaiting Google export, as payloads for Claude
-linkintake mark-exported <id> --master-url … --destination-url …
+linkintake sync [id]                   # retry pending/partial Google exports (oldest first, bounded)
+linkintake sync-status [id]            # Google auth state, pending records, last errors
+linkintake google-auth | google-setup  # one time
 linkintake list | show <id> | doctor | config [--set k=v] | cleanup <id>
 ```
 
@@ -78,25 +92,23 @@ caption_or_text, transcript, visual_notes}`, `extraction{takeaways, focused_resu
 - Duplicate identity = canonical URL + destination + normalized instruction. Same Reel saved to two
   destinations with different notes is two records. Exact repeats need `--force`.
 
-## Destinations
+## Destinations (fixed)
 
-| Destination | Export | Extraction |
+| Destination | Where | Format |
 |---|---|---|
-| Wishlist | staging block appended to the existing Wishlist doc's *Media Queue* tab (doc not restructured) | structured: product_item, brand, model, color_style, size_spec, price, notes — never invented |
-| Supplement Ideas | doc *Supplemental Reel / Content Bank* | freeform, the idea you pointed at + why |
-| Design Inspo | doc *Design Inspo Bank* | freeform, the visual concept |
-| Scholarships | sheet *Scholarships Intake* (scholarship, organization, deadline, amount, eligibility, required materials, link, notes) | structured |
-| Personal Instagram Inspiration | doc *Personal Instagram Inspiration* | takeaways + optional fields: format, key_shots, composition, lighting_color, editing_or_sequence, techniques_to_recreate, unknowns |
-| Inbox / Unsorted | doc *Intake Inbox* | none (no LLM call), context preserved |
-
-Every export also appends one row to **Intake Master** (Date · Destination · Source · Title/Creator ·
-My Instruction · Extracted Result · Context/Summary · Status · Original URL). Exports happen from a Claude
-session through its Drive connector (see `skills/link-intake/SKILL.md`); the CLI only prepares payloads.
+| Master Intake | doc *Intake Master* (every save) | table: Date, Destination, Source, Title / Creator, User Instruction, Extracted Insight, Tags, Status, URL, Record ID |
+| Wishlist | your existing Wishlist doc, new tab *Intake Staging* only | table: Date Added, Item, Brand, Model, Variant / Color / Size, Price, Why I Saved It, Notes, Source, Record ID (blank when unsupported) |
+| Supplement Ideas | doc *Supplement Inspiration Bank* in College Applications | entry: Date, Record ID, Source, What I liked, Idea, Context, Tags (Personal Statement, Why Major, …), URL |
+| Design Inspo | doc *Design Inspiration Bank* in Media | entry: Date, Record ID, Tags, Instruction, What stood out, Reusable ideas, Visual notes, Source |
+| Personal Instagram Inspiration | doc *Personal Instagram Inspiration* | entry: Date, Record ID, Instruction, Summary, Takeaways, Shots, Lighting, Transitions, Pacing, Hooks, Techniques, Unknowns, Source |
+| Scholarships | sheet *Scholarship Tracker* in College Applications / Scholarships | row: Scholarship, Organization, Amount, Deadline, Eligibility, Required Materials, Application Link, Status, Priority, Notes, Source, Date Added, Record ID (needs Sheets API enabled; pending until then) |
+| Inbox | Master Intake only | |
 
 ## Tests
 
 ```bash
 uv run python tests/test_router.py   # offline: canonical URLs, classes, dedupe, depth
+uv run python tests/test_sync.py     # offline: idempotency, partial, pending retry, sheets-disabled, off
 tests/smoke_real.sh                  # the one E2E test: Reel -> personal_ig -> extract -> save (local, export pending)
 tests/regression_reels.sh            # all 10 wishlist Reels as Wishlist intents (cache reused, nothing deleted)
 ```

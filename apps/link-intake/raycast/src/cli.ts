@@ -2,6 +2,21 @@ import { getPreferenceValues } from "@raycast/api";
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 
+export type SyncPart = { status: "pending" | "synced" | "failed"; destination?: string; remote_file_id: string; remote_ref: string; last_attempt: string; last_error: string; synced_at: string };
+export type SyncState = { status: "synced" | "partial" | "export_pending" | "not_configured" | "off"; master_sync?: SyncPart; destination_sync?: SyncPart; last_error?: string; last_attempt?: string; synced_at?: string };
+
+export function syncLine(ex?: SyncState): string {
+  const st = ex?.status ?? "export_pending";
+  if (st === "synced") return "Saved locally · Google synced";
+  if (st === "off") return "Saved locally · Google export off";
+  if (st === "not_configured") return "Saved locally · Google not authorized";
+  if (st === "partial") {
+    const m = ex?.master_sync?.status === "synced";
+    return `Saved locally · Master ${m ? "synced" : "pending"} · Destination ${m ? "pending" : "synced"}`;
+  }
+  return "Saved locally · Google pending";
+}
+
 export type IntakeRecord = {
   id: string;
   created_at: string;
@@ -12,7 +27,7 @@ export type IntakeRecord = {
   extraction: { takeaways?: string[]; focused_result: string; uncertainty?: string; structured_data: Record<string, string>; confidence: number };
   artifacts: { contact_sheet: string; media_unlocker_job_id: string; frames?: { file: string; t: string }[] };
   processing: { llm_backend: string; adapter: string };
-  export?: { status?: "exported" | "export_pending"; via?: string; master?: { ok: boolean; url?: string; error?: string }; destination?: { ok: boolean; url?: string; error?: string } };
+  export?: SyncState;
   errors: string[];
   duplicate_of: string[];
   exact_duplicate?: string;

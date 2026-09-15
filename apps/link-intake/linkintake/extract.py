@@ -23,6 +23,7 @@ SCHEMA = {
                       "description": "4-6 strongest actionable takeaways answering Nik's instruction, one sentence each, grounded in evidence"},
         "focused_result": {"type": "string", "description": "The full answer to Nik's instruction, grounded in the source. Detailed, reusable; bullets welcome"},
         "uncertainty": {"type": "string", "description": "One or two sentences on what the evidence could NOT establish (missing transcript, stills only, timing unknown); empty if none"},
+        "tags": {"type": "array", "items": {"type": "string"}, "description": "1-4 short tags. Supplement Ideas: use the given vocabulary. Others: loose, lowercase categories"},
         "visual_notes": {"type": "string", "description": "What the frames/images show that matters for the instruction; empty if no visuals"},
         "structured_data": {
             "type": "array",
@@ -33,7 +34,7 @@ SCHEMA = {
         "needs_review": {"type": "boolean"},
         "review_reason": {"type": "string"},
     },
-    "required": ["title", "creator", "short_source_summary", "takeaways", "focused_result", "uncertainty", "visual_notes",
+    "required": ["title", "creator", "short_source_summary", "takeaways", "focused_result", "uncertainty", "tags", "visual_notes",
                  "structured_data", "confidence", "needs_review", "review_reason"],
     "additionalProperties": False,
 }
@@ -63,13 +64,17 @@ confirmed by targeted research. Never guess model, color, size, or price.""",
 amount, eligibility, required_materials, link, notes. Leave a field empty rather than guessing. Dates as ISO if possible.""",
     "supplement_ideas": """Destination: Supplement Ideas (college supplemental essays / content bank). Prioritize the specific idea Nik
 pointed at (metaphor, framing, line, structure). Quote or closely paraphrase it, then say in 1-3 sentences why it works
-and how it could be reused. structured_data may be empty.""",
+and how it could be reused. structured_data may be empty. tags: pick from Personal Statement, Why Major, Intellectual
+Curiosity, Community, Identity / Background, Challenge / Growth, Roommate / Personality, Activity / Impact,
+School-specific, Writing Style / Structure, Other (several allowed).""",
     "design_inspo": """Destination: Design Inspo. Focus on the visual/design concept Nik named: layout, type, color, motion, spacing,
-composition. Describe it concretely enough to recreate. structured_data may be empty.""",
+composition. Describe it concretely enough to recreate. structured_data fields when supported: what_stood_out,
+reusable_ideas, visual_notes. tags: loose categories (e.g. typography, layout, motion, color, ui, packaging).""",
     "personal_ig": """Destination: Personal Instagram Inspiration (Nik's own content: lifestyle, filmmaking, photography, editing,
 framing, transitions, aesthetics). Do not summarize the whole post; answer the instruction with concrete, reusable
 technique notes (shot types, pacing, cuts, timing, light, movement). structured_data fields, only those supported:
-format, key_shots, composition, lighting_color, editing_or_sequence, techniques_to_recreate, unknowns.""",
+format, key_shots, composition, lighting_color, transitions_sequence, pacing_editing, hooks_text,
+techniques_to_recreate, unknowns. tags: loose (e.g. filming, editing, hooks, captions, lifestyle).""",
     "inbox": "Destination: Inbox. Minimal: summarize and preserve context.",
 }
 
@@ -136,6 +141,8 @@ def _normalize(out: dict) -> dict:
         out["confidence"] = 0.0
     for k in ("title", "creator", "short_source_summary", "focused_result", "visual_notes", "review_reason", "uncertainty"):
         out[k] = str(out.get(k) or "")
+    tg = out.get("tags")
+    out["tags"] = [str(t).strip() for t in tg if str(t).strip()][:6] if isinstance(tg, list) else []
     tk = out.get("takeaways")
     out["takeaways"] = [str(t).strip() for t in tk if str(t).strip()][:6] if isinstance(tk, list) else []
     out["needs_review"] = bool(out.get("needs_review"))

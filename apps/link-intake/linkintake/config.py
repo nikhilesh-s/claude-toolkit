@@ -11,25 +11,22 @@ CONFIG_PATH = STATE_DIR / "config.json"
 
 DEFAULTS: dict = {
     "google": {
-        # off  = save locally, mark export_pending (Claude exports later through its Drive connector).
-        # rest = optional fallback: write via the stdlib REST client using creds_path.
-        "export_mode": "off",
-        # OAuth token JSON (client_id, client_secret, refresh_token, token_uri). Only used when
-        # export_mode = rest. Empty = ~/.link-intake/google-creds.json if it exists.
-        "creds_path": "",
-        # Drive folder that new intake docs are created in. Empty = My Drive root.
-        "folder_id": "",
-        "docs": {
-            "intake_master": "",
-            "supplement_ideas": "",
-            "design_inspo": "",
-            "personal_ig": "",
-            "inbox": "",
-            # Existing College/Dorm Wishlist doc (see skills/college-wishlist-media). Not restructured.
-            "wishlist": "17W59ZIgOeFVw3Wk-I1n8Jfjd_kcJ77GFqR9-tn3gW5Q",
+        # auto = sync on every save when ~/.link-intake/google/{client,token}.json exist; off = never.
+        "export_mode": "auto",
+        "account": "",  # personal email recorded by google-auth
+        # Exact Drive IDs chosen once by `linkintake google-setup`. Never discovered by name at save time.
+        "targets": {
+            "master_doc": "",
+            "wishlist_doc": "",
+            "wishlist_tab_id": "",
+            "college_folder": "",
+            "supplement_doc": "",
+            "media_folder": "",
+            "design_doc": "",
+            "personal_ig_doc": "",
+            "scholarships_folder": "",
+            "scholarship_sheet": "",
         },
-        "wishlist_tab_id": "t.8rdi8wnl84he",  # Media Queue tab = staging section
-        "sheets": {"scholarships": ""},
     },
     "media_unlocker": {
         "mcp_url": "http://127.0.0.1:8770/mcp",
