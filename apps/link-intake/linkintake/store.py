@@ -78,18 +78,6 @@ def find_exact(dedupe_key: str) -> dict | None:
     return None
 
 
-def pending_exports() -> list[dict]:
-    out = []
-    for e in index():
-        try:
-            rec = load(e["id"])
-        except FileNotFoundError:
-            continue
-        if rec.get("export", {}).get("status", "export_pending") != "exported":
-            out.append(rec)
-    return out
-
-
 def recent(n: int = 20) -> list[dict]:
     return list(reversed(index()))[:n]
 

@@ -17,7 +17,7 @@ linkintake ingest <url> --dest <destination> --instruction "<...>" --save       
 linkintake save <record-id> [--force]                                             # save a reviewed record
 linkintake reprocess <record-id> [--instruction "..."] [--dest ...]
 linkintake batch tests/urls.txt [--save]      # lines: URL | destination | instruction
-linkintake exports | mark-exported <id> --master-url … --destination-url …
+linkintake sync [id] | sync-status [id] | google-auth | google-setup
 linkintake list | show <id> | doctor | config
 ```
 
@@ -40,18 +40,14 @@ Add `--json` before the subcommand for machine-readable output. Destinations: `w
    notes with approximate timestamps, structured fields (Wishlist/Scholarships schemas; optional shooting fields
    for Personal Instagram Inspiration), and confidence = how well the evidence supports the answer. Stills-only
    evidence must not produce pacing or camera-motion claims; those land in `uncertainty`.
-5. **Save** = local canonical record in `~/.link-intake/records/` (always), then media cleanup: heavy files
-   of Media Unlocker jobs *this* intake created are deleted; manifest, metadata and contact sheet stay so the
-   source can be re-downloaded. The record's `export.status` is `export_pending`.
-6. **Google export is Claude's job, not the CLI's.** When you are in a session that has a Google Drive
-   connector (check with the connectors list; none is installed as of 2026-09-14), run
-   `linkintake --json exports`. Each payload gives you the master row (`master_columns` + `master_row`) for
-   the **Intake Master** doc table, the destination target, and a ready `entry_block` (or `scholarship_row`).
-   Write them with the connector, using the safe-edit protocol in `skills/google-docs-safe-edit/SKILL.md`,
-   then `linkintake mark-exported <id> --master-url <url> --destination-url <url>`. Never re-export a record
-   whose status is already `exported`. Without a Drive connector, leave records pending and say so.
-   (Optional fallback: `google.export_mode=rest` + `linkintake export <id>` uses the stdlib REST client; it is
-   not required and must not pull in gswitch credentials.)
+5. **Save** = local canonical record in `~/.link-intake/records/` (always, first), media cleanup of jobs this
+   intake created, then Google sync: one row in the **Intake Master** doc, then the destination write
+   (Wishlist → *Intake Staging* tab of the existing Wishlist doc; Supplement/Design/Instagram → entry appended to
+   their bank docs; Scholarships → *Scholarship Tracker* sheet), then a bounded retry of older pending records.
+   Google failures never fail a save; they set `export.status` to `partial`/`export_pending` with the error.
+6. **Google is a direct REST client with the personal account's token** (`~/.link-intake/google/`), set up once
+   by `linkintake google-auth` + `google-setup`. Never read gswitch, workspace-mcp, or the Funnel. Every remote
+   entry carries the Record ID and is checked before appending, so `linkintake sync` is always safe to re-run.
 7. **Duplicates**: identity = canonical URL + destination + normalized instruction. Same URL with a
    different intent is a legitimate second record. Exact duplicates need `--force`.
 

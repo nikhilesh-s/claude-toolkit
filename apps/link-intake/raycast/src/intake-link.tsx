@@ -15,7 +15,7 @@ import {
 } from "@raycast/api";
 import type { LaunchProps } from "@raycast/api";
 import { useEffect, useRef, useState } from "react";
-import { DESTINATIONS, destinationTitle, IntakeRecord, runCli } from "./cli";
+import { DESTINATIONS, destinationTitle, IntakeRecord, runCli, syncLine, SyncState } from "./cli";
 
 type Draft = { url: string; destination: string; instruction: string };
 
@@ -138,6 +138,70 @@ function Details({ rec }: { rec: IntakeRecord }) {
   );
 }
 
+function part(p?: { status: string; remote_ref: string; last_error: string; last_attempt: string; synced_at: string }): string {
+  if (!p) return "—";
+  if (p.status === "synced") return `synced ${p.synced_at ? p.synced_at.slice(0, 16) : ""}${p.remote_ref ? `\n  ${p.remote_ref}` : ""}`;
+  return `${p.status}${p.last_attempt ? ` (last attempt ${p.last_attempt.slice(0, 16)})` : ""}${p.last_error ? `\n  \`${p.last_error.slice(0, 300)}\`` : ""}`;
+}
+
+export function SyncStatus({ rec }: { rec: IntakeRecord }) {
+  const [state, setState] = useState<SyncState | undefined>(rec.export);
+  const [busy, setBusy] = useState(false);
+  const md = [
+    `## ${syncLine(state)}`,
+    `**Record** \`${rec.id}\` · ${destinationTitle(rec.intent.destination)}`,
+    `### Master Intake\n${part(state?.master_sync)}`,
+    `### Destination\n${part(state?.destination_sync)}`,
+    state?.last_error ? `### Last error\n\`\`\`\n${state.last_error}\n\`\`\`` : "",
+    state?.status === "not_configured" ? "Run `linkintake google-auth` then `linkintake google-setup` in a terminal (one time)." : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  async function retry() {
+    setBusy(true);
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Syncing…" });
+    try {
+      const updated = await runCli(["sync", rec.id]);
+      setState(updated.export);
+      toast.style = Toast.Style.Success;
+      toast.title = syncLine(updated.export);
+    } catch (e) {
+      toast.style = Toast.Style.Failure;
+      toast.title = "Sync failed";
+      toast.message = String((e as Error).message).slice(0, 200);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Detail
+      navigationTitle="Google Sync"
+      isLoading={busy}
+      markdown={md}
+      actions={
+        <ActionPanel>
+          <Action title="Retry This Record" icon={Icon.ArrowClockwise} onAction={retry} />
+          <Action title="Sync All Pending" icon={Icon.Cloud} onAction={() => syncAllPending()} />
+        </ActionPanel>
+      }
+    />
+  );
+}
+
+export async function syncAllPending() {
+  const toast = await showToast({ style: Toast.Style.Animated, title: "Syncing pending records…" });
+  try {
+    const res = await runCli<{ synced: { id: string }[]; still_pending: { id: string; error: string }[]; remaining: number }>(["sync", "--limit", "10", "--budget", "60"]);
+    toast.style = res.still_pending.length ? Toast.Style.Failure : Toast.Style.Success;
+    toast.title = `Synced ${res.synced.length} · pending ${res.remaining}`;
+    toast.message = res.still_pending[0]?.error?.slice(0, 120) ?? "";
+  } catch (e) {
+    toast.style = Toast.Style.Failure;
+    toast.title = "Sync failed";
+    toast.message = String((e as Error).message).slice(0, 200);
+  }
+}
+
 function Review({ rec }: { rec: IntakeRecord }) {
   const { push } = useNavigation();
   const s = rec.source, e = rec.extraction, c = rec.context;
@@ -168,14 +232,15 @@ function Review({ rec }: { rec: IntakeRecord }) {
     const toast = await showToast({ style: Toast.Style.Animated, title: "Saving…" });
     try {
       const saved = await runCli(["save", rec.id, ...(rec.exact_duplicate ? ["--force"] : [])]);
-      const ex = saved.export ?? {};
-      const exported = ex.status === "exported";
-      toast.style = Toast.Style.Success;
-      toast.title = exported ? "Saved and exported" : "Saved · export pending";
-      toast.message = exported
-        ? destinationTitle(rec.intent.destination)
-        : `${destinationTitle(rec.intent.destination)} · Claude exports it to Drive later (linkintake exports)`;
-      if (ex.destination?.url) toast.primaryAction = { title: "Copy Destination Link", onAction: () => Clipboard.copy(ex.destination!.url!) };
+      const ex = saved.export;
+      const line = syncLine(ex);
+      toast.style = ex?.status === "synced" ? Toast.Style.Success : Toast.Style.Success;
+      toast.title = line;
+      const err = ex?.last_error || ex?.destination_sync?.last_error || ex?.master_sync?.last_error;
+      toast.message = ex?.status === "synced" ? destinationTitle(rec.intent.destination) : err ? err.slice(0, 120) : destinationTitle(rec.intent.destination);
+      const ref = ex?.destination_sync?.remote_ref?.startsWith("http") ? ex.destination_sync.remote_ref : ex?.master_sync?.remote_ref;
+      if (ref && ref.startsWith("http")) toast.primaryAction = { title: "Copy Google Link", onAction: () => Clipboard.copy(ref) };
+      if (ex?.status !== "synced") toast.secondaryAction = { title: "Show Sync Status", onAction: () => push(<SyncStatus rec={saved} />) };
       await popToRoot({ clearSearchBar: true });
     } catch (err) {
       toast.style = Toast.Style.Failure;
@@ -208,6 +273,8 @@ function Review({ rec }: { rec: IntakeRecord }) {
         <ActionPanel>
           <Action title="Save" icon={Icon.Check} onAction={save} />
           <Action title="Show Full Details" icon={Icon.Document} shortcut={{ modifiers: ["cmd", "shift"], key: "d" }} onAction={() => push(<Details rec={rec} />)} />
+          <Action title="Sync Pending" icon={Icon.Cloud} shortcut={{ modifiers: ["cmd", "shift"], key: "s" }} onAction={() => syncAllPending()} />
+          <Action title="Show Sync Status" icon={Icon.Info} onAction={() => push(<SyncStatus rec={rec} />)} />
           <Action title="Edit Instruction" icon={Icon.Pencil} shortcut={{ modifiers: ["cmd"], key: "e" }} onAction={() => push(<IntakeForm draft={draft} reprocessId={rec.id} />)} />
           <Action title="Change Destination" icon={Icon.Folder} shortcut={{ modifiers: ["cmd"], key: "d" }} onAction={() => push(<IntakeForm draft={draft} reprocessId={rec.id} />)} />
           <Action title="Reprocess" icon={Icon.ArrowClockwise} shortcut={{ modifiers: ["cmd"], key: "r" }} onAction={() => push(<Processing draft={draft} reprocessId={rec.id} />)} />

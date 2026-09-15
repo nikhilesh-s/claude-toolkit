@@ -1,47 +1,34 @@
-"""Exports. The local record is canonical; Google Docs/Sheets are human-readable views.
-Master = one Google Doc with an ongoing table. Destinations = a doc (or sheet) per bucket."""
+"""Destination formats. Pure functions: record -> row/entry text. Every remote entry carries the Record ID,
+which is what makes retries idempotent. The local JSON stays the complete canonical copy."""
 from __future__ import annotations
 
 from datetime import datetime
 
-from . import config
-from .google_api import DOC_MIME, SHEET_MIME, Google, GoogleError, doc_url, sheet_url
 from .records import DESTINATIONS, clip
 
+MASTER_HEADER = ["Date", "Destination", "Source", "Title / Creator", "User Instruction", "Extracted Insight",
+                 "Tags", "Status", "URL", "Record ID"]
+WISHLIST_HEADER = ["Date Added", "Item", "Brand", "Model", "Variant / Color / Size", "Price", "Why I Saved It",
+                   "Notes", "Source", "Record ID"]
+SCHOLAR_HEADER = ["Scholarship", "Organization", "Amount", "Deadline", "Eligibility", "Required Materials",
+                  "Application Link", "Status", "Priority", "Notes", "Source", "Date Added", "Record ID"]
+WISHLIST_TAB_TITLE = "Intake Staging"
 DOC_TITLES = {
-    "intake_master": "Intake Master",
-    "supplement_ideas": "Supplemental Reel / Content Bank",
-    "design_inspo": "Design Inspo Bank",
-    "personal_ig": "Personal Instagram Inspiration",
-    "inbox": "Intake Inbox",
-    "scholarships_doc": "Scholarships Intake (doc fallback)",
+    "master_doc": "Intake Master",
+    "supplement_doc": "Supplement Inspiration Bank",
+    "design_doc": "Design Inspiration Bank",
+    "personal_ig_doc": "Personal Instagram Inspiration",
+    "scholarship_sheet": "Scholarship Tracker",
 }
-SHEET_TITLES = {"scholarships": "Scholarships Intake"}
-MASTER_HEADER = ["Date", "Destination", "Source", "Title / Creator", "My Instruction", "Extracted Result",
-                 "Context / Summary", "Status", "Original URL"]
-SCHOLAR_HEADER = ["Date", "Scholarship", "Organization", "Deadline", "Amount", "Eligibility", "Required materials",
-                  "Link", "Notes", "My instruction", "Status", "Source URL"]
-SCHOLAR_FIELDS = ["scholarship", "organization", "deadline", "amount", "eligibility", "required_materials", "link", "notes"]
-
-
-def ensure_doc(g: Google, cfg: dict, key: str) -> str:
-    doc_id = cfg["google"]["docs"].get(key)
-    if not doc_id:
-        doc_id = g.find_or_create(DOC_TITLES[key], DOC_MIME, cfg["google"]["folder_id"])
-        cfg["google"]["docs"][key] = doc_id
-        config.save(cfg)
-    return doc_id
-
-
-def ensure_sheet(g: Google, cfg: dict, key: str) -> str:
-    sid = cfg["google"]["sheets"].get(key)
-    if not sid:
-        sid = g.find_or_create(SHEET_TITLES[key], SHEET_MIME, cfg["google"]["folder_id"])
-        cfg["google"]["sheets"][key] = sid
-        config.save(cfg)
-    if not g.sheet_values(sid, "A1:A1"):
-        g.sheet_append(sid, [SCHOLAR_HEADER])
-    return sid
+# destination key -> (config target key, kind)
+TARGET_FOR = {
+    "wishlist": ("wishlist_doc", "wishlist_tab"),
+    "supplement_ideas": ("supplement_doc", "doc"),
+    "design_inspo": ("design_doc", "doc"),
+    "personal_ig": ("personal_ig_doc", "doc"),
+    "scholarships": ("scholarship_sheet", "sheet"),
+    "inbox": ("master_doc", "master_only"),
+}
 
 
 def _date(rec: dict) -> str:
@@ -56,118 +43,98 @@ def _title_creator(rec: dict) -> str:
     return " — ".join(x for x in (s.get("title"), s.get("creator")) if x)
 
 
-def master_row(rec: dict) -> list[str]:
-    s, i, c, e = rec["source"], rec["intent"], rec["context"], rec["extraction"]
-    return [
-        _date(rec), DESTINATIONS[i["destination"]], f"{s['platform']} ({s['source_class']})", clip(_title_creator(rec), 200),
-        i["user_instruction"], clip("\n".join(f"• {t}" for t in e.get("takeaways") or []) or e.get("focused_result", ""), 1500),
-        clip(c.get("short_source_summary", ""), 800),
-        f"{rec['status']} ({e.get('confidence', 0):.2f})", s["original_url"],
-    ]
+def _insight(rec: dict, n: int = 900) -> str:
+    e = rec["extraction"]
+    tk = e.get("takeaways") or []
+    return clip("\n".join(f"• {t}" for t in tk) if tk else e.get("focused_result", ""), n)
 
 
-def entry_block(rec: dict) -> str:
-    s, i, c, e = rec["source"], rec["intent"], rec["context"], rec["extraction"]
-    lines = [f"■ {_date(rec)} · {DESTINATIONS[i['destination']]} · {s['platform']}",
-             _title_creator(rec) or s["original_url"],
-             f"Source: {s['original_url']}",
-             f"Instruction: {i['user_instruction']}"]
-    for t in e.get("takeaways") or []:
-        lines.append(f"  • {t}")
-    lines.append(f"Result: {clip(e.get('focused_result', '') or '(no extraction)', 3000)}")
-    if e.get("uncertainty"):
-        lines.append(f"Uncertain: {clip(e['uncertainty'], 400)}")
-    if c.get("visual_notes"):
-        lines.append(f"Visual: {clip(c['visual_notes'], 800)}")
-    if c.get("short_source_summary"):
-        lines.append(f"Context: {clip(c['short_source_summary'], 800)}")
-    if e.get("structured_data"):
-        lines.append("Fields: " + "; ".join(f"{k}: {v}" for k, v in e["structured_data"].items() if v))
-    lines.append(f"Status: {rec['status']} · confidence {e.get('confidence', 0):.2f} · intake {rec['id']}")
-    return "\n".join(lines) + "\n\n"
+def _tags(rec: dict) -> str:
+    return ", ".join(rec["extraction"].get("tags") or [])
 
 
-def export_payload(rec: dict) -> dict:
-    """Everything a Claude session needs to export this record through its own Google Drive tool."""
-    dest = rec["intent"]["destination"]
-    target = {"wishlist": "existing Wishlist doc, Media Queue tab (staging block only)",
-              "scholarships": f"sheet '{SHEET_TITLES['scholarships']}' (columns: {', '.join(SCHOLAR_HEADER)})"}.get(
-        dest, f"doc '{DOC_TITLES.get(dest, dest)}' (append entry block)")
+def _sd(rec: dict, *keys: str) -> str:
     sd = rec["extraction"].get("structured_data", {})
-    return {
-        "record_id": rec["id"],
-        "master_doc": DOC_TITLES["intake_master"],
-        "master_columns": MASTER_HEADER,
-        "master_row": master_row(rec),
-        "destination": DESTINATIONS[dest],
-        "destination_target": target,
-        "entry_block": entry_block(rec),
-        "scholarship_row": [_date(rec)] + [sd.get(f, "") for f in SCHOLAR_FIELDS] if dest == "scholarships" else None,
-    }
+    for k in keys:
+        if sd.get(k):
+            return str(sd[k])
+    return ""
 
 
-def export(rec: dict) -> dict:
-    cfg = config.load()
-    if cfg["google"].get("export_mode", "off") != "rest":
-        return {"status": "export_pending", "via": "claude", "master": {}, "destination": {}}
-    out: dict = {"status": "exported", "via": "rest", "master": {}, "destination": {}}
-    try:
-        g = Google()
-    except GoogleError as exc:
-        out["status"] = "export_pending"
-        out["master"] = out["destination"] = {"ok": False, "error": str(exc)}
-        return out
-    out["account"] = g.account
-    try:
-        mid = ensure_doc(g, cfg, "intake_master")
-        g.doc_append_table_row(mid, master_row(rec), MASTER_HEADER, link_columns=(8,))
-        out["master"] = {"ok": True, "url": doc_url(mid)}
-    except GoogleError as exc:
-        out["master"] = {"ok": False, "error": str(exc)}
-    try:
-        out["destination"] = _export_destination(g, cfg, rec)
-    except GoogleError as exc:
-        out["destination"] = {"ok": False, "error": str(exc)}
-    if not (out["master"].get("ok") and out["destination"].get("ok")):
-        out["status"] = "export_pending"
-    return out
+# ---------- Master Intake (table)
+def master_row(rec: dict) -> list[str]:
+    s, i = rec["source"], rec["intent"]
+    return [_date(rec), DESTINATIONS[i["destination"]], s["platform"], clip(_title_creator(rec), 160),
+            i["user_instruction"], _insight(rec), _tags(rec), f"{rec['status']} ({rec['extraction'].get('confidence', 0):.2f})",
+            s["original_url"], rec["id"]]
 
 
-def _export_destination(g: Google, cfg: dict, rec: dict) -> dict:
-    dest = rec["intent"]["destination"]
-    if dest == "wishlist":
-        doc_id = cfg["google"]["docs"]["wishlist"]
-        tab = cfg["google"].get("wishlist_tab_id", "")
-        s, e = rec["source"], rec["extraction"]
-        sd = e.get("structured_data", {})
-        lines = [f"• {sd.get('product_item') or s.get('title') or s['original_url']}",
-                 f"  Source: {s['original_url']}",
-                 "  Status: Unprocessed (link-intake)",
-                 f"  Instruction: {rec['intent']['user_instruction']}",
-                 f"  Extracted: {clip(e.get('focused_result', ''), 1200)}"]
-        fields = "; ".join(f"{k}: {v}" for k, v in sd.items() if v)
-        if fields:
-            lines.append(f"  Fields: {fields}")
-        lines.append(f"  Intake: {rec['id']} · {rec['status']}")
-        g.doc_append_text(doc_id, "\n".join(lines) + "\n", tab_id=tab)
-        return {"ok": True, "url": doc_url(doc_id) + (f"?tab={tab}" if tab else "")}
-    if dest == "scholarships":
-        sd = rec["extraction"].get("structured_data", {})
-        row = [_date(rec)] + [sd.get(f, "") for f in SCHOLAR_FIELDS]
-        row[8] = row[8] or clip(rec["extraction"].get("focused_result", ""), 1000)  # notes
-        row += [rec["intent"]["user_instruction"], rec["status"], rec["source"]["original_url"]]
-        try:
-            sid = ensure_sheet(g, cfg, "scholarships")
-            g.sheet_append(sid, [row])
-            return {"ok": True, "url": sheet_url(sid)}
-        except GoogleError as exc:
-            if "sheets.googleapis.com" not in str(exc):
-                raise
-            # ponytail: Sheets API not enabled on the OAuth project -> same row into a doc table until it is.
-            doc_id = ensure_doc(g, cfg, "scholarships_doc")
-            g.doc_append_table_row(doc_id, row, SCHOLAR_HEADER, link_columns=(7, 11))
-            return {"ok": True, "url": doc_url(doc_id), "note": "Sheets API disabled; wrote to doc table instead"}
-    key = {"supplement_ideas": "supplement_ideas", "design_inspo": "design_inspo", "personal_ig": "personal_ig", "inbox": "inbox"}[dest]
-    doc_id = ensure_doc(g, cfg, key)
-    g.doc_append_text(doc_id, entry_block(rec))
-    return {"ok": True, "url": doc_url(doc_id)}
+# ---------- Wishlist -> Intake Staging tab (table)
+def wishlist_row(rec: dict) -> list[str]:
+    sd = rec["extraction"].get("structured_data", {})
+    variant = " / ".join(v for v in (sd.get("color_style"), sd.get("size_spec"), sd.get("variant")) if v)
+    return [_date(rec), sd.get("product_item") or sd.get("item") or rec["source"].get("title", ""), sd.get("brand", ""),
+            sd.get("model", ""), variant, sd.get("price", ""), rec["intent"]["user_instruction"],
+            clip(sd.get("notes") or _insight(rec, 400), 400), rec["source"]["original_url"], rec["id"]]
+
+
+# ---------- Scholarship Tracker (sheet)
+def scholarship_row(rec: dict) -> list[str]:
+    sd = rec["extraction"].get("structured_data", {})
+    return [sd.get("scholarship", "") or rec["source"].get("title", ""), sd.get("organization", ""), sd.get("amount", ""),
+            sd.get("deadline", ""), sd.get("eligibility", ""), sd.get("required_materials", ""),
+            sd.get("link", "") or rec["source"]["original_url"], "New", "", clip(sd.get("notes") or _insight(rec, 500), 500),
+            rec["source"]["original_url"], _date(rec), rec["id"]]
+
+
+# ---------- Loose doc entries
+def _entry(lines: list[tuple[str, str]]) -> str:
+    out = [f"{k}: {v}" if k else v for k, v in lines if v]
+    return "\n".join(out) + "\n\n"
+
+
+def supplement_entry(rec: dict) -> str:
+    e, c = rec["extraction"], rec["context"]
+    return _entry([
+        ("", f"■ {_date(rec)} · Supplement Idea · {rec['id']}"),
+        ("Source", clip(_title_creator(rec) or rec["source"]["original_url"], 160)),
+        ("What I liked", rec["intent"]["user_instruction"]),
+        ("Idea", clip(e.get("focused_result", ""), 2500)),
+        ("Context", clip(c.get("short_source_summary", ""), 600)),
+        ("Tags", _tags(rec)),
+        ("URL", rec["source"]["original_url"]),
+    ])
+
+
+def design_entry(rec: dict) -> str:
+    e, c = rec["extraction"], rec["context"]
+    return _entry([
+        ("", f"■ {_date(rec)} · Design Inspo · {rec['id']}"),
+        ("Tags", _tags(rec)),
+        ("Instruction", rec["intent"]["user_instruction"]),
+        ("What stood out", clip(_sd(rec, "what_stood_out") or "\n".join(f"• {t}" for t in e.get("takeaways") or []), 1200)),
+        ("Reusable ideas", clip(_sd(rec, "reusable_ideas") or e.get("focused_result", ""), 2000)),
+        ("Visual notes", clip(_sd(rec, "visual_notes") or c.get("visual_notes", ""), 800)),
+        ("Source", rec["source"]["original_url"]),
+    ])
+
+
+def personal_ig_entry(rec: dict) -> str:
+    e, c = rec["extraction"], rec["context"]
+    return _entry([
+        ("", f"■ {_date(rec)} · Instagram Inspiration · {rec['id']}"),
+        ("Instruction", rec["intent"]["user_instruction"]),
+        ("Summary", clip(c.get("short_source_summary", ""), 500)),
+        ("Takeaways", "\n" + "\n".join(f"  • {t}" for t in e.get("takeaways") or []) if e.get("takeaways") else ""),
+        ("Shots / framing", _sd(rec, "key_shots", "composition")),
+        ("Lighting / color", _sd(rec, "lighting_color")),
+        ("Transitions / sequence", _sd(rec, "transitions_sequence", "editing_or_sequence")),
+        ("Pacing / editing", _sd(rec, "pacing_editing")),
+        ("Hooks / text", _sd(rec, "hooks_text")),
+        ("Techniques to recreate", _sd(rec, "techniques_to_recreate")),
+        ("Unknowns", e.get("uncertainty") or _sd(rec, "unknowns")),
+        ("Source", rec["source"]["original_url"]),
+    ])
+
+
+ENTRY_FOR = {"supplement_ideas": supplement_entry, "design_inspo": design_entry, "personal_ig": personal_ig_entry}

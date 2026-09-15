@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import cleanup, config, depth, destinations, extract, store
+from . import cleanup, config, depth, extract, store, sync
 from .adapters import direct_file, google_workspace, media_unlocker as mu, video, web_page
 from .records import clip, new_record, normalize_destination
 from .router import canonicalize, classify
@@ -219,31 +219,14 @@ def save_record(record_id: str, force: bool = False) -> dict:
         raise DuplicateError(f"{record_id} is already saved. Use --force to export it again.")
     if rec.get("exact_duplicate") and not force:
         raise DuplicateError(f"Already saved as {rec['exact_duplicate']} (same URL + destination + instruction). Use --force to save anyway.")
-    rec["export"] = destinations.export(rec)
     rec["saved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    store.save(rec)  # record file + index line
+    store.save(rec)  # 1. local canonical record committed first; nothing below can undo this
     rec["cleanup"] = cleanup.cleanup_record(rec)
-    store.write(rec)  # refresh the file only
-    return rec
-
-
-def mark_exported(record_id: str, master_url: str = "", destination_url: str = "", note: str = "") -> dict:
-    """Called after Claude (or a person) exported the record through the Drive connector."""
-    rec = store.load(record_id)
-    rec["export"] = {"status": "exported", "via": "claude", "exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                     "master": {"ok": True, "url": master_url}, "destination": {"ok": True, "url": destination_url}, "note": note}
     store.write(rec)
-    return rec
-
-
-def export_rest(record_id: str) -> dict:
-    """Optional fallback: push one saved record through the stdlib Google REST client."""
-    rec = store.load(record_id)
-    cfg = config.load()
-    cfg["google"]["export_mode"] = "rest"
-    config.save(cfg)
-    rec["export"] = destinations.export(rec)
-    store.write(rec)
+    sync.sync_record(rec)  # 2+3. Master then destination; failures land in rec["export"], never raise
+    if rec["export"].get("status") == "synced":
+        rec["export"]["swept"] = sync.sync_pending(limit=3, budget_s=12, exclude=rec["id"])
+        store.write(rec)
     return rec
 
 

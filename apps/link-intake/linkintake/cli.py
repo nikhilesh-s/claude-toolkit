@@ -46,12 +46,15 @@ def _summary(rec: dict) -> str:
     elif rec.get("duplicate_of"):
         lines.append(f"Same source already saved as: {', '.join(rec['duplicate_of'])} (different intent; OK)")
     ex = rec.get("export", {})
-    if ex.get("status") == "export_pending":
-        lines.append("Export:      pending (saved locally; run `linkintake exports` and let Claude export via its Drive connector)")
-    for k in ("master", "destination"):
-        if ex.get(k):
-            v = ex[k]
-            lines.append(f"Export {k}: {'OK ' + v.get('url', '') if v.get('ok') else 'FAILED ' + v.get('error', '')}")
+    if rec.get("saved_at"):
+        from .sync import summary_line
+        lines.append(f"Sync:        {summary_line(ex)}")
+        for k in ("master_sync", "destination_sync"):
+            v = ex.get(k) or {}
+            if v.get("status") == "synced":
+                lines.append(f"  {k.split('_')[0]:12s} synced {v.get('remote_ref', '')}")
+            elif v.get("last_error"):
+                lines.append(f"  {k.split('_')[0]:12s} FAILED {v['last_error'][:160]}")
     for err in rec.get("errors", []):
         lines.append(f"! {err}")
     return "\n".join(lines)
@@ -88,27 +91,48 @@ def cmd_show(a) -> int:
     return 0
 
 
-def cmd_exports(a) -> int:
-    """Records saved locally but not yet in Google. Claude reads this and exports via its Drive connector."""
-    from .destinations import export_payload
-    rows = [export_payload(r) for r in store.pending_exports()]
-    if a.json:
-        print(json.dumps(rows, ensure_ascii=False))
-    elif not rows:
-        print("(nothing pending export)")
-    else:
-        for r in rows:
-            print(f"{r['record_id']}  -> {r['destination']}  [{r['destination_target']}]\n{r['entry_block']}")
+def cmd_sync(a) -> int:
+    from . import sync
+    if a.id:
+        rec = store.load(a.id)
+        sync.sync_record(rec)
+        _out(rec if a.json else {"id": rec["id"], **rec["export"]}, a.json)
+        return 0 if rec["export"]["status"] == "synced" else 1
+    done = sync.sync_pending(limit=a.limit, budget_s=a.budget)
+    _out(done if a.json else {"synced": [d for d in done if d["status"] == "synced"], "still_pending": [d for d in done if d["status"] != "synced"],
+                              "remaining": len(sync.pending_records())}, a.json)
     return 0
 
 
-def cmd_mark_exported(a) -> int:
-    _out(pipeline.mark_exported(a.id, a.master_url or "", a.destination_url or "", a.note or ""), a.json)
+def cmd_sync_status(a) -> int:
+    from . import sync
+    if a.id:
+        rec = store.load(a.id)
+        _out(rec["export"], a.json)
+        return 0
+    pend = sync.pending_records()
+    rows = [{"id": r["id"], "destination": r["intent"]["destination"], "status": r["export"].get("status"),
+             "last_error": r["export"].get("last_error", ""), "last_attempt": r["export"].get("last_attempt", "")} for r in pend]
+    _out({"google": sync.google_state(), "pending": rows}, a.json)
     return 0
 
 
-def cmd_export(a) -> int:
-    _out(pipeline.export_rest(a.id), a.json)
+def cmd_sync_skip(a) -> int:
+    """Mark records as never-to-sync (test artifacts, junk). Reversible with `linkintake sync <id>`."""
+    from . import sync
+    ids = a.ids or ([r["id"] for r in sync.pending_records()] if a.all_pending else [])
+    for rid in ids:
+        rec = store.load(rid)
+        rec.setdefault("export", {})["status"] = "skipped"
+        rec["export"]["last_error"] = ""
+        store.write(rec)
+    _out({"skipped": ids}, a.json)
+    return 0
+
+
+def cmd_google_setup(a) -> int:
+    from . import google_setup
+    google_setup.run()
     return 0
 
 
@@ -180,19 +204,24 @@ def cmd_doctor(a) -> int:
     else:
         row("llm backend", backend != "none", f"{backend} (model {cfg['llm']['model']})"
             + (" — set ANTHROPIC_API_KEY or `claude login`" if backend == "none" else ""))
-    mode = cfg["google"].get("export_mode", "off")
-    if mode == "rest":
-        from .google_api import Google, GoogleError
+    from . import sync
+    from .google_api import Google, GoogleError
+    state = sync.google_state(cfg)
+    if state == "ready":
         try:
             g = Google()
             me = g.request("GET", "https://www.googleapis.com/oauth2/v3/userinfo").get("email", "")
-            row("google rest exporter", True, f"{me} via {g.path}")
+            row("google", True, f"{me} (personal token, refresh ok)")
         except GoogleError as exc:
-            row("google rest exporter", False, str(exc))
+            row("google", False, str(exc))
+        t = cfg["google"].get("targets", {})
+        missing = [k for k, v in t.items() if not v]
+        row("google targets", not missing, "all set" if not missing else "missing: " + ", ".join(missing) + " -> run `linkintake google-setup`")
+    elif state == "off":
+        print("ok   google: export off (config google.export_mode)")
     else:
-        print("ok   google export: off — records save locally as export_pending; Claude exports via its Drive connector (`linkintake exports`)")
-    pend = len(store.pending_exports())
-    print(f"     records pending export: {pend}")
+        row("google", False, "not authorized -> run `linkintake google-auth` with your PERSONAL account")
+    print(f"     records pending google sync: {len(sync.pending_records())}")
     print(f"     state dir: {config.STATE_DIR}")
     return 0 if ok else 1
 
@@ -249,12 +278,14 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_reprocess)
 
     s = sub.add_parser("show"); s.add_argument("id"); s.set_defaults(fn=cmd_show)
-    sub.add_parser("exports", help="records saved locally and awaiting Google export (payloads for Claude)").set_defaults(fn=cmd_exports)
-    s = sub.add_parser("mark-exported", help="record that Claude/you exported a record to Google")
-    s.add_argument("id"); s.add_argument("--master-url"); s.add_argument("--destination-url"); s.add_argument("--note")
-    s.set_defaults(fn=cmd_mark_exported)
-    s = sub.add_parser("export", help="optional fallback: export one record via the REST client (google.export_mode=rest)")
-    s.add_argument("id"); s.set_defaults(fn=cmd_export)
+    s = sub.add_parser("sync", help="retry pending/partial Google exports (oldest first, bounded); or one record with an id")
+    s.add_argument("id", nargs="?"); s.add_argument("--limit", type=int, default=10); s.add_argument("--budget", type=float, default=60)
+    s.set_defaults(fn=cmd_sync)
+    s = sub.add_parser("sync-status", help="Google auth state + records still pending, with last errors")
+    s.add_argument("id", nargs="?"); s.set_defaults(fn=cmd_sync_status)
+    s = sub.add_parser("sync-skip", help="exclude records from Google sync (test junk); `sync <id>` re-includes")
+    s.add_argument("ids", nargs="*"); s.add_argument("--all-pending", action="store_true"); s.set_defaults(fn=cmd_sync_skip)
+    sub.add_parser("google-setup", help="one-time: pick/create the destination docs, folders and sheet; persists IDs").set_defaults(fn=cmd_google_setup)
     s = sub.add_parser("list"); s.add_argument("--limit", type=int, default=20); s.set_defaults(fn=cmd_list)
 
     s = sub.add_parser("batch", help="ingest many: file lines `URL | destination | instruction`")
@@ -265,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("doctor").set_defaults(fn=cmd_doctor)
     s = sub.add_parser("config"); s.add_argument("--set", action="append", metavar="dotted.key=value"); s.set_defaults(fn=cmd_config)
-    sub.add_parser("google-auth", help="(optional, REST fallback only) authorize a Google account").set_defaults(fn=cmd_google_auth)
+    sub.add_parser("google-auth", help="one-time: sign in with your PERSONAL Google account (Desktop OAuth client)").set_defaults(fn=cmd_google_auth)
     s = sub.add_parser("cleanup"); s.add_argument("id"); s.set_defaults(fn=cmd_cleanup)
 
     a = p.parse_args(argv)

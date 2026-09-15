@@ -69,15 +69,27 @@ def new_record(*, original_url: str, canonical_url: str, source_class: str, plat
             "visual_notes": "",
         },
         # confidence = how confident we are that focused_result answers the instruction from the available evidence (0-1)
-        "extraction": {"takeaways": [], "focused_result": "", "uncertainty": "", "structured_data": {}, "confidence": 0.0},
+        "extraction": {"takeaways": [], "focused_result": "", "uncertainty": "", "tags": [], "structured_data": {}, "confidence": 0.0},
         "artifacts": {"contact_sheet": "", "media_unlocker_job_id": "", "job_preexisting": None, "frames": []},
         "processing": {"depth": {}, "llm_backend": "", "adapter": ""},
-        "export": {},
+        "export": empty_export(),
         "errors": [],
         "status": "needs_review",
         "duplicate_of": [],
         "dedupe_key": dedupe_key(canonical_url, destination, instruction),
     }
+
+
+def empty_sync(destination: str = "") -> dict:
+    d = {"status": "pending", "remote_file_id": "", "remote_ref": "", "last_attempt": "", "last_error": "", "synced_at": ""}
+    if destination:
+        d["destination"] = destination
+    return d
+
+
+def empty_export() -> dict:
+    # status: synced | partial | export_pending | not_configured | off | skipped
+    return {"status": "export_pending", "master_sync": empty_sync(), "destination_sync": empty_sync()}
 
 
 def clip(text: str, n: int) -> str:

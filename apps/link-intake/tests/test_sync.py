@@ -1,0 +1,185 @@
+"""Sync behaviour with a fake Google. No network, no real Drive. Run: uv run python tests/test_sync.py"""
+import json
+import os
+import tempfile
+
+os.environ["LINKINTAKE_STATE_DIR"] = tempfile.mkdtemp(prefix="linkintake-test-")
+
+from linkintake import config, store, sync  # noqa: E402
+from linkintake.destinations import MASTER_HEADER, SCHOLAR_HEADER  # noqa: E402
+from linkintake.google_api import GoogleError  # noqa: E402
+from linkintake.records import new_record  # noqa: E402
+
+TARGETS = {"master_doc": "MASTER", "wishlist_doc": "WISH", "wishlist_tab_id": "t.staging", "college_folder": "F1",
+           "supplement_doc": "SUPP", "media_folder": "F2", "design_doc": "DESIGN", "personal_ig_doc": "IG",
+           "scholarships_folder": "F3", "scholarship_sheet": "SHEET"}
+
+
+class FakeGoogle:
+    """Docs are dicts of text (tab-aware); sheets are row lists. Optional failure injection per method."""
+
+    def __init__(self):
+        self.docs = {k: {"": ""} for k in ("MASTER", "SUPP", "DESIGN", "IG")}
+        self.docs["WISH"] = {"": "Overview stays untouched\n", "t.staging": ""}
+        self.sheets = {"SHEET": [SCHOLAR_HEADER]}
+        self.fail = {}  # method name -> GoogleError
+        self.calls = []
+        self.account = "me@example.com"
+
+    def _maybe_fail(self, name):
+        self.calls.append(name)
+        if name in self.fail:
+            raise self.fail[name]
+
+    def doc_get(self, doc_id):
+        self._maybe_fail("doc_get")
+        return {"_fake": doc_id}
+
+    def doc_append_table_row(self, doc_id, cells, header, tab_id="", link_columns=()):
+        self._maybe_fail("doc_append_table_row")
+        self.docs[doc_id][tab_id] += " | ".join(cells) + "\n"
+
+    def doc_append_text(self, doc_id, text, tab_id=""):
+        self._maybe_fail("doc_append_text")
+        self.docs[doc_id][tab_id] += text
+
+    def sheet_values(self, sheet_id, rng="A1:Z500"):
+        self._maybe_fail("sheet_values")
+        col = rng[0]
+        idx = ord(col) - ord("A")
+        return [[r[idx]] if len(r) > idx else [] for r in self.sheets[sheet_id]]
+
+    def sheet_append(self, sheet_id, values, rng="A1"):
+        self._maybe_fail("sheet_append")
+        self.sheets[sheet_id].extend(values)
+
+
+def fake_doc_text(doc, tab_id=""):
+    fake = FAKE.docs[doc["_fake"]]
+    return fake.get(tab_id, "") if tab_id else "\n".join(fake.values())
+
+
+FAKE = FakeGoogle()
+sync.doc_text = fake_doc_text          # monkeypatch idempotency read
+sync.is_configured = lambda: True      # pretend token exists
+
+
+def make(dest="personal_ig", instruction="test"):
+    rec = new_record(original_url=f"https://example.com/{dest}", canonical_url=f"https://example.com/{dest}", source_class="web_page",
+                     platform="example.com", destination=dest, instruction=instruction)
+    rec["status"] = "ready"
+    rec["extraction"].update({"takeaways": ["a", "b"], "focused_result": "detail", "tags": ["x"], "confidence": 0.8,
+                              "structured_data": {"scholarship": "S", "product_item": "Lamp"}})
+    rec["saved_at"] = rec["created_at"]
+    store.save(rec)
+    return rec
+
+
+def setup_cfg():
+    cfg = config.load()
+    cfg["google"]["export_mode"] = "auto"
+    cfg["google"]["targets"] = dict(TARGETS)
+    config.save(cfg)
+    return cfg
+
+
+def main():
+    global FAKE
+    cfg = setup_cfg()
+
+    # 1. both succeed -> synced, record id present in master + destination
+    FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
+    r = make("personal_ig")
+    ex = sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert ex["status"] == "synced" and ex["master_sync"]["status"] == "synced" and ex["destination_sync"]["status"] == "synced"
+    assert r["id"] in FAKE.docs["MASTER"][""] and r["id"] in FAKE.docs["IG"][""]
+    assert ex["destination_sync"]["destination"] == "personal_ig" and ex["synced_at"]
+    assert sync.summary_line(ex) == "Saved locally · Google synced"
+
+    # 2. retry after success never duplicates (idempotent by Record ID)
+    before = (FAKE.docs["MASTER"][""], FAKE.docs["IG"][""])
+    r["export"]["master_sync"]["status"] = "pending"; r["export"]["destination_sync"]["status"] = "pending"  # force re-check
+    sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert (FAKE.docs["MASTER"][""], FAKE.docs["IG"][""]) == before, "duplicate row written"
+    assert FAKE.docs["MASTER"][""].count(r["id"]) == 1
+
+    # 3. master fails, destination succeeds -> partial, error preserved
+    FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
+    FAKE.fail["doc_append_table_row"] = GoogleError(503, "backend error")
+    r = make("supplement_ideas")
+    ex = sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert ex["status"] == "partial" and ex["master_sync"]["status"] == "failed" and "503" in ex["master_sync"]["last_error"]
+    assert ex["destination_sync"]["status"] == "synced" and r["id"] in FAKE.docs["SUPP"][""]
+    assert sync.summary_line(ex) == "Saved locally · Master pending · Destination synced"
+    # ...then master recovers on retry; destination not re-appended
+    del FAKE.fail["doc_append_table_row"]
+    ex = sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert ex["status"] == "synced" and FAKE.docs["SUPP"][""].count(r["id"]) == 1 and FAKE.docs["MASTER"][""].count(r["id"]) == 1
+
+    # 4. master succeeds, destination (wishlist tab) fails -> partial; other wishlist content untouched
+    FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
+    r = make("wishlist")
+    FAKE.fail["doc_append_table_row"] = GoogleError(500, "boom")
+    # master uses the same method; make it fail only on the 2nd call
+    calls = {"n": 0}
+    real = FAKE.doc_append_table_row
+    def flaky(doc_id, cells, header, tab_id="", link_columns=()):
+        calls["n"] += 1
+        if doc_id == "WISH":
+            raise GoogleError(500, "wishlist boom")
+        FAKE.calls.append("doc_append_table_row"); FAKE.docs[doc_id][tab_id] += " | ".join(cells) + "\n"
+    FAKE.fail.clear(); FAKE.doc_append_table_row = flaky
+    ex = sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert ex["status"] == "partial" and ex["master_sync"]["status"] == "synced" and "wishlist boom" in ex["destination_sync"]["last_error"]
+    assert FAKE.docs["WISH"][""] == "Overview stays untouched\n"
+    assert sync.summary_line(ex) == "Saved locally · Master synced · Destination pending"
+
+    # 5. Google unreachable -> export_pending, nothing written, local record intact
+    FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
+    FAKE.fail["doc_get"] = GoogleError(0, "unreachable: timeout")
+    r = make("design_inspo")
+    ex = sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert ex["status"] == "export_pending" and "unreachable" in ex["last_error"]
+    assert store.load(r["id"])["export"]["status"] == "export_pending"
+
+    # 6. pending retry sweep: oldest first, bounded, skips exclude
+    FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
+    pend_before = [x["id"] for x in sync.pending_records()]
+    assert pend_before, "expected pending records from earlier steps"
+    done = sync.sync_pending(limit=2, budget_s=5, g=FAKE)
+    assert len(done) == 2 and [d["id"] for d in done] == pend_before[:2]
+    assert all(d["status"] == "synced" for d in done)
+    done2 = sync.sync_pending(limit=50, budget_s=5, g=FAKE, exclude=pend_before[2] if len(pend_before) > 2 else "")
+    assert all(d["id"] != (pend_before[2] if len(pend_before) > 2 else "-") for d in done2)
+
+    # 7. sheets: duplicate Record ID skip + Sheets API disabled error surfaces verbatim
+    FAKE = FakeGoogle(); sync.doc_text = fake_doc_text
+    r = make("scholarships")
+    ex = sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert ex["status"] == "synced" and FAKE.sheets["SHEET"][-1][-1] == r["id"] and len(FAKE.sheets["SHEET"]) == 2
+    r["export"]["destination_sync"]["status"] = "pending"
+    sync.sync_record(r, g=FAKE, cfg=cfg)
+    assert len(FAKE.sheets["SHEET"]) == 2, "sheet row duplicated"
+    FAKE2 = FakeGoogle(); FAKE2.fail["sheet_values"] = GoogleError(403, '{"error":{"message":"Google Sheets API has not been used in project 1 before or it is disabled sheets.googleapis.com"}}')
+    r2 = make("scholarships", "another")
+    FAKE = FAKE2; sync.doc_text = fake_doc_text
+    ex = sync.sync_record(r2, g=FAKE2, cfg=cfg)
+    assert ex["status"] == "partial" and "sheets.googleapis.com" in ex["destination_sync"]["last_error"]
+
+    # 8. not authorized -> not_configured, no calls
+    sync.is_configured = lambda: False
+    r = make("inbox")
+    ex = sync.sync_record(r, g=None, cfg=cfg)
+    assert ex["status"] == "not_configured"
+    sync.is_configured = lambda: True
+
+    # 9. off switch
+    cfg["google"]["export_mode"] = "off"
+    ex = sync.sync_record(make("inbox", "off"), g=None, cfg=cfg)
+    assert ex["status"] == "off"
+
+    print("test_sync: ok (9 scenarios)")
+
+
+if __name__ == "__main__":
+    main()
