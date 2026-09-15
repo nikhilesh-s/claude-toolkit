@@ -215,6 +215,27 @@ class Google:
             self.doc_batch(doc_id, reqs)
         return True
 
+    def doc_delete_table_row(self, doc_id: str, needle: str, tab_id: str = "", exclude: tuple[str, ...] = ()) -> bool:
+        """Delete the last table row (not the header) whose text contains needle and none of `exclude`.
+        Idempotent: False if absent."""
+        body = self._body(self.doc_get(doc_id), tab_id)
+        tables = [e for e in body.get("content", []) if "table" in e]
+        if not tables:
+            return False
+        table = tables[-1]
+        idx = None
+        for i, row in enumerate(table["table"]["tableRows"]):
+            text = " ".join(_elements_text(c.get("content", [])) for c in row["tableCells"])
+            if i > 0 and needle in text and not any(x in text for x in exclude):
+                idx = i
+        if idx is None:
+            return False
+        start = {"index": table["startIndex"]}
+        if tab_id:
+            start["tabId"] = tab_id
+        self.doc_batch(doc_id, [{"deleteTableRow": {"tableCellLocation": {"tableStartLocation": start, "rowIndex": idx, "columnIndex": 0}}}])
+        return True
+
     def _fill_row(self, doc_id: str, table: dict, row_idx: int, values: list[str], tab_id: str, link_columns) -> None:
         row = table["table"]["tableRows"][row_idx]
         writes = []
@@ -257,6 +278,14 @@ class Google:
         rng = f"A{row_number}:{last}{row_number}"
         self.request("PUT", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{urllib.parse.quote(rng)}",
                      body={"values": [values]}, params={"valueInputOption": "USER_ENTERED"})
+
+    def sheet_delete_row(self, sheet_id: str, row_number: int) -> None:
+        """Delete one data row (1-based, never the header) from the first sheet tab."""
+        if row_number <= 1:
+            return
+        gid = self.sheet_get(sheet_id)["sheets"][0]["properties"]["sheetId"]
+        self.request("POST", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}:batchUpdate", body={"requests": [
+            {"deleteDimension": {"range": {"sheetId": gid, "dimension": "ROWS", "startIndex": row_number - 1, "endIndex": row_number}}}]})
 
     def sheet_values(self, sheet_id: str, rng: str = "A1:Z500") -> list[list[str]]:
         return self.request("GET", f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{urllib.parse.quote(rng)}").get("values", [])

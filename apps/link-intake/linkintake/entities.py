@@ -64,8 +64,28 @@ def get(kind: str, key: str) -> dict | None:
 
 # ---------- identity extraction
 _ASIN = re.compile(r"\b(B0[A-Z0-9]{8})\b")
-_MODEL_NO = re.compile(r"\b([A-Z]{1,4}[- ]?\d{2,5}[A-Z0-9-]{0,6})\b")
+# a real model/part number: letters+digits mixed, 5+ chars, at least 2 digits (NESA1V000, WH-1000XM5, A2338), never a plain word or "12-in-1"
+_MODEL_NO = re.compile(r"\b(?=[A-Z0-9-]{5,}\b)(?=[A-Z0-9-]*\d[A-Z0-9-]*\d)(?=[A-Z0-9-]*[A-Z])[A-Z0-9]+(?:-[A-Z0-9]+)*\b")
 _WATT = re.compile(r"\b(\d{2,4})\s?w\b", re.I)
+_UNKNOWN_VARIANT = re.compile(r"\b(not chosen|options?:|unspecified|varies|tbd|unknown)\b", re.I)
+_MODEL_NOISE = {"combo", "set", "bundle", "pack", "version", "edition", "official", "new", "original", "model", "w", "watt", "watts"}
+
+
+def model_core_tokens(model: str, brand: str = "") -> set[str]:
+    """Descriptive model tokens with brand, wattage, bundle words, punctuation and order removed."""
+    m = re.sub(r"[;(].*$", "", model or "")
+    m = _WATT.sub(" ", m)
+    t = tokens(m) - tokens(brand) - _MODEL_NOISE
+    return {x for x in t if not _MODEL_NO.fullmatch(x.upper())}
+
+
+def model_numbers(*fields: str) -> set[str]:
+    out = set()
+    for f in fields:
+        for m in _MODEL_NO.findall((f or "").upper()):
+            if not _ASIN.fullmatch(m) and not re.fullmatch(r"\d+-IN-\d+", m):
+                out.add(m)
+    return out
 
 
 def wishlist_identity(rec: dict) -> dict:
@@ -76,17 +96,26 @@ def wishlist_identity(rec: dict) -> dict:
         m = _ASIN.search(blob)
         ident = m.group(1) if m else ""
     model = sd.get("model", "")
-    model_core = norm(re.sub(r"[;(].*$", "", model))  # "12-in-1 Desktop Charging Station; exact model TBD (...)" -> "12 in 1 desktop charging station"
-    if is_unknown(model_core):
-        model_core = ""
-    watt = _WATT.search(blob)
+    brand = norm(sd.get("brand", ""))
+    core = model_core_tokens(model, brand)
+    model_from = "model" if core else "name"
+    if not core:
+        core = model_core_tokens(sd.get("product_item", ""), brand)  # weak: a product name is not a model
+    nums = model_numbers(sd.get("identifier", ""), model)  # part numbers (NESA1V000), never the ASIN
+    head = re.sub(r"[;(].*$", "", model or "")  # "(40W/65W/160W bundle not shown)" is a list of options, not a choice
+    v_ = sd.get("variant", "") or ""
+    watt = _WATT.search(head) or (_WATT.search(v_) if not _UNKNOWN_VARIANT.search(v_) else None)
     variant_bits = [sd.get("variant", ""), sd.get("color_style", ""), sd.get("size_spec", "")]
     variant = norm(" ".join(b for b in variant_bits if b and not is_unknown(b)))
-    # variant identity = discrete choices that change the purchase (color, size, wattage), not descriptive prose
-    variant_key = norm(sd.get("variant", "")) or (f"{watt.group(1)}w" if watt and not is_unknown(sd.get("model", "")) else "")
+    # variant identity = a discrete purchase choice (color, size, wattage). Prose like "Not chosen. Options: White or Black" is not a choice.
+    v = sd.get("variant", "") or ""
+    variant_key = norm(v) if v and not _UNKNOWN_VARIANT.search(v) and len(tokens(v)) <= 3 else ""
+    if not variant_key and watt:
+        variant_key = f"{watt.group(1)}w"
     return {
         "identifier": ident.upper(), "product_url": (sd.get("product_url") or "").strip().lower().rstrip("/"),
-        "brand": norm(sd.get("brand", "")), "model": model_core, "name": norm(sd.get("product_item") or sd.get("item") or rec["source"].get("title", "")),
+        "brand": brand, "model": " ".join(sorted(core)), "model_from": model_from, "model_numbers": sorted(nums),
+        "name": norm(sd.get("product_item") or sd.get("item") or rec["source"].get("title", "")),
         "variant": variant, "variant_key": variant_key,
     }
 
@@ -103,21 +132,48 @@ def scholarship_identity(rec: dict) -> dict:
 
 
 # ---------- matching
+def _core(e_ident: dict) -> set[str]:
+    # re-normalize on read so entities stored before matcher v2 compare the same way
+    return model_core_tokens(e_ident.get("model") or "", e_ident.get("brand", ""))
+
+
+def _same_line(ident: dict, ei: dict) -> bool:
+    """Same brand and the descriptive model tokens are equal or one contains the other (>=2 tokens)."""
+    if not ident["brand"] or ei.get("brand") != ident["brand"]:
+        return False
+    if ident.get("model_from", "model") != "model" or ei.get("model_from", "model") != "model":
+        return False  # a name-derived core can only ever reach possible_duplicate
+    a, b = _core(ident), _core(ei)
+    if not a or not b:
+        return False
+    return a == b or (len(a & b) >= 2 and (a <= b or b <= a))
+
+
 def match_wishlist(ident: dict, entities: list[dict]) -> tuple[dict | None, str, float, list[str]]:
-    """Returns (entity, action, confidence, reasons). action in created|merged|possible_duplicate|variant."""
+    """Returns (entity, action, confidence, reasons). action in created|merged|possible_duplicate|variant.
+    Strongest evidence first; fuzzy similarity can only ever produce possible_duplicate."""
     for e in entities:
         ei = e["identity"]
         if ident["identifier"] and ident["identifier"] == ei.get("identifier"):
             return e, "merged", 0.97, ["same product identifier"]
         if ident["product_url"] and ident["product_url"] == ei.get("product_url"):
             return e, "merged", 0.92, ["same official product URL"]
-    same_line = [e for e in entities if ident["brand"] and e["identity"].get("brand") == ident["brand"]
-                 and ident["model"] and e["identity"].get("model") == ident["model"]]
+        if set(ident.get("model_numbers", [])) & set(ei.get("model_numbers", [])):
+            return e, "merged", 0.95, ["same model number"]
+    same_line = []
+    for e in entities:
+        ei = e["identity"]
+        if ident.get("model_numbers") and ei.get("model_numbers") and not set(ident["model_numbers"]) & set(ei["model_numbers"]):
+            continue  # two known, different part numbers are different products
+        if _same_line(ident, ei):
+            same_line.append(e)
     if same_line:
-        # Rule (Case D): variant_key (color/size/wattage choice) is part of identity. No variant on the new record
-        # -> enrich the existing line (single variant) or flag if several variants exist.
+        # Case D: variant_key (color/size/wattage choice) is part of identity. No variant on the new record ->
+        # enrich the single existing line; if several variants exist, ask (never attach to the first one).
         if not ident["variant_key"]:
-            return (same_line[0], "merged", 0.85, ["same brand + model"]) if len(same_line) == 1 else (same_line[0], "possible_duplicate", 0.6, ["same brand + model, several variants exist"])
+            if len(same_line) == 1:
+                return same_line[0], "merged", 0.85, ["same brand + model"]
+            return same_line[0], "possible_duplicate", 0.6, ["same brand + model, several variants exist; which one?"]
         exact_variant = [e for e in same_line if e["identity"].get("variant_key") == ident["variant_key"]]
         if exact_variant:
             return exact_variant[0], "merged", 0.9, ["same brand + model + variant"]
@@ -127,13 +183,14 @@ def match_wishlist(ident: dict, entities: list[dict]) -> tuple[dict | None, str,
         return same_line[0], "variant", 0.85, ["same brand + model, different variant -> separate variant entry"]
     for e in entities:
         ei = e["identity"]
-        if ident["model"] and ei.get("model") and ident["model"] != ei["model"]:
-            continue  # two *known*, different models are different products; Case F is only for uncertain identity
+        if ident.get("model_numbers") and ei.get("model_numbers") and not set(ident["model_numbers"]) & set(ei["model_numbers"]):
+            continue
+        if ident.get("model_from", "model") == "model" and ei.get("model_from", "model") == "model" and _core(ident) and _core(ei) and not (_core(ident) & _core(ei)):
+            continue  # both models known and sharing no descriptive token: different products, not "similar"
         if ident["brand"] and ei.get("brand") == ident["brand"]:
-            bt = tokens(ident["brand"])
-            a = (tokens(ident["name"]) | tokens(ident["model"])) - bt
-            b = (tokens(ei.get("name", "")) | tokens(ei.get("model", ""))) - bt
-            sim = len(a & b) / min(len(a), len(b)) if a and b else 0.0  # overlap coefficient: "charging station cube" ~ "12-in-1 desktop charging station"
+            a = (tokens(ident["name"]) | _core(ident)) - tokens(ident["brand"]) - _MODEL_NOISE
+            b = (tokens(ei.get("name", "")) | _core(ei)) - tokens(ident["brand"]) - _MODEL_NOISE
+            sim = len(a & b) / min(len(a), len(b)) if a and b else 0.0  # overlap coefficient
             if sim >= 0.5:
                 return e, "possible_duplicate", round(sim, 2), [f"same brand, similar name ({sim:.2f}); model identity uncertain"]
     return None, "created", 1.0, []
@@ -180,7 +237,7 @@ def merge_fields(entity: dict, rec: dict, fields: list[str], authoritative: bool
         if not new:
             continue
         cur = entity["fields"].get(f)
-        new_conf = _field_conf(rec, new) + (0.15 if authoritative else 0)
+        new_conf = min(1.0, _field_conf(rec, new) + (0.15 if authoritative else 0))
         if cur is None or is_unknown(cur["value"]):
             take = not is_unknown(new) or cur is None
         else:
@@ -245,6 +302,8 @@ def resolve(rec: dict) -> dict:
         for k in ("identifier", "product_url"):
             if ident.get(k) and not ent["identity"].get(k):
                 ent["identity"][k] = ident[k]
+        if ident.get("model_numbers"):
+            ent["identity"]["model_numbers"] = sorted(set(ent["identity"].get("model_numbers", [])) | set(ident["model_numbers"]))
         save(kind, ents)
         return {"action": "merged", "entity_key": ent["key"], "matched_entity": ent["key"], "match_confidence": conf, "match_reasons": reasons,
                 "contributing_record_ids": list(ent["record_ids"]), "enriched_fields": changed}
@@ -324,6 +383,79 @@ def decide(record_id: str, choice: str, entity_key: str = "") -> dict:
     rec["export"]["status"] = "export_pending"
     store.write(rec)
     return rec["destination_resolution"]
+
+
+def refresh_identity(ent: dict) -> dict:
+    """Recompute identity from the entity's records with the current identity code (entities stored by older
+    code keep working). Unions identifiers/model numbers; variant_key = first real purchase choice seen."""
+    from . import store
+    if ent["kind"] != "wishlist":
+        return ent["identity"]
+    idents = []
+    for rid in ent["record_ids"]:
+        try:
+            idents.append(wishlist_identity(store.load(rid)))
+        except FileNotFoundError:
+            continue
+    if not idents:
+        return ent["identity"]
+    base = idents[0]
+    merged = dict(base)
+    merged["identifier"] = next((i["identifier"] for i in idents if i["identifier"]), "")
+    merged["product_url"] = next((i["product_url"] for i in idents if i["product_url"]), "")
+    merged["model_numbers"] = sorted({n for i in idents for n in i.get("model_numbers", [])})
+    with_model = [i for i in idents if i.get("model_from") == "model" and i["model"]]
+    if with_model:
+        merged["model"], merged["model_from"] = with_model[0]["model"], "model"
+    merged["variant_key"] = next((i["variant_key"] for i in idents if i["variant_key"]), "")
+    ent["identity"] = merged
+    return merged
+
+
+def absorb(kind: str, stray_key: str, into_key: str) -> dict:
+    """Merge stray entity into the canonical one. Records are untouched except their resolution now points at the
+    canonical entity. Provenance (record ids, urls, price observations, history) is carried over; fields merge by
+    the usual rules (higher confidence / more specific wins, unknown never overwrites). Idempotent."""
+    from . import store
+    ents = load(kind)
+    into = next((e for e in ents if e["key"] == into_key), None)
+    stray = next((e for e in ents if e["key"] == stray_key), None)
+    if not into:
+        raise ValueError(f"no entity {into_key}")
+    if not stray:
+        return {"absorbed": [], "into": into_key, "note": "stray already gone"}
+    moved = []
+    for rid in stray["record_ids"]:
+        if rid not in into["record_ids"]:
+            into["record_ids"].append(rid)
+        moved.append(rid)
+    for u in stray["source_urls"]:
+        if u not in into["source_urls"]:
+            into["source_urls"].append(u)
+    for f, val in stray["fields"].items():
+        if not isinstance(val, dict):
+            continue
+        cur = into["fields"].get(f)
+        if cur is None or (is_unknown(cur["value"]) and not is_unknown(val["value"])) or (
+                not is_unknown(val["value"]) and val["confidence"] >= cur["confidence"] - 0.05 and (_more_specific(val["value"], cur["value"]) or val["confidence"] > cur["confidence"])):
+            into.setdefault("history", []).append({"field": f, "from": cur["value"] if cur else "", "to": val["value"], "record_id": val.get("record_id", ""), "at": _now(), "via": "absorb"})
+            into["fields"][f] = val
+    into["price_observations"] = into.get("price_observations", []) + [p for p in stray.get("price_observations", []) if p not in into.get("price_observations", [])]
+    into["history"] = into.get("history", []) + stray.get("history", [])
+    into["updated_at"] = _now()
+    refresh_identity(into)  # never trust a stray's stored identity; recompute from the records
+    into.setdefault("absorbed_keys", []).append(stray_key)
+    ents = [e for e in ents if e["key"] != stray_key]
+    save(kind, ents)
+    for rid in moved:
+        try:
+            rec = store.load(rid)
+        except FileNotFoundError:
+            continue
+        rec["destination_resolution"] = {"action": "merged", "entity_key": into_key, "matched_entity": into_key, "match_confidence": 1.0,
+                                         "match_reasons": [f"absorbed stray entity {stray_key}"], "contributing_record_ids": list(into["record_ids"])}
+        store.write(rec)
+    return {"absorbed": moved, "into": into_key, "record_ids": into["record_ids"], "source_urls": into["source_urls"]}
 
 
 def describe(res: dict, dest: str) -> str:

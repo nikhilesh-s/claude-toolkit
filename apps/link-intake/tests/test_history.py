@@ -41,6 +41,22 @@ def main():
         pass
     # history survives a fresh read (it is built from files, not memory)
     assert [r["id"] for r in store.history(10)] == ids
+    # a failed record saves locally (audit) but never exports or seeds an entity
+    from linkintake import entities
+    f = new_record(original_url="https://example.com/404", canonical_url="https://example.com/404", source_class="web_page", platform="example.com",
+                   destination="scholarships", instruction="x")
+    f["status"] = "failed"; f["errors"] = ["adapter: HTTP 404"]
+    store.write_pending(f)
+    out = pipeline.save_record(f["id"])
+    assert out["saved_at"] and out["export"]["status"] == "skipped" and out["destination_resolution"]["action"] == "n/a"
+    assert not [e for e in entities.load("scholarship") if f["id"] in e["record_ids"]]
+    assert store.history(20)[0]["id"] == f["id"] and store.history(20)[0]["sync_line"].startswith("Saved locally ✓ · Google skipped")
+    # exact duplicate with --save is refused before any processing
+    try:
+        pipeline.ingest("https://example.com/a", "inbox", "x", save=True)
+        raise AssertionError("exact duplicate should be refused")
+    except pipeline.DuplicateError:
+        pass
     print("test_history: ok")
 
 

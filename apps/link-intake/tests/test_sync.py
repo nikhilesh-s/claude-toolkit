@@ -49,6 +49,17 @@ class FakeGoogle:
                 return True
         return False
 
+    def doc_delete_table_row(self, doc_id, needle, tab_id="", exclude=()):
+        self._maybe_fail("doc_delete_table_row")
+        lines = self.docs[doc_id][tab_id].split("\n")
+        keep = [l for l in lines if not (needle in l and not any(x in l for x in exclude))]
+        self.docs[doc_id][tab_id] = "\n".join(keep)
+        return len(keep) != len(lines)
+
+    def sheet_delete_row(self, sheet_id, row_number):
+        self._maybe_fail("sheet_delete_row")
+        del self.sheets[sheet_id][row_number - 1]
+
     def sheet_update_row(self, sheet_id, row_number, values):
         self._maybe_fail("sheet_update_row")
         self.sheets[sheet_id][row_number - 1] = values
@@ -234,7 +245,32 @@ def main():
     assert all(r["id"] != w3["id"] for r in sync.pending_records())
     assert sync.summary_line(ex3, w3).startswith("Saved locally ✓ · possible Wishlist duplicate")
 
-    print("test_sync: ok (11 scenarios)")
+    # 12. absorb a stray remote row: stray row removed, canonical row carries both ids, retries stay idempotent
+    stray = new_record(original_url="https://example.com/stray-src", canonical_url="https://example.com/stray-src", source_class="web_page",
+                       platform="example.com", destination="wishlist", instruction="stray")
+    stray["status"] = "ready"; stray["saved_at"] = stray["created_at"]
+    stray["extraction"].update({"confidence": 0.9, "structured_data": {"brand": "Acme", "model": "L-same-product", "identifier": "QQQ12345"}})
+    store.save(stray)
+    stray["destination_resolution"] = {"action": "created", "entity_key": "wishlist:stray-test", "contributing_record_ids": [stray["id"]]}
+    ents = entities.load("wishlist")
+    ents.append({"key": "wishlist:stray-test", "kind": "wishlist", "identity": {"brand": "acme", "model": "l same product", "identifier": "QQQ12345", "model_numbers": []},
+                 "fields": {"price": {"value": "$12", "confidence": 0.9, "record_id": stray["id"], "observed_at": "", "source_url": ""}},
+                 "record_ids": [stray["id"]], "source_urls": ["https://example.com/stray-src"], "history": [], "price_observations": [], "created_at": "", "updated_at": "", "primary_record_id": stray["id"], "remote": {}})
+    entities.save("wishlist", ents)
+    store.write(stray)
+    sync.sync_record(stray, g=FAKE, cfg=cfg)
+    assert FAKE.docs["WISH"]["t.staging"].strip().count("\n") == 1  # two rows now (canonical + stray)
+    canonical_key = w1["destination_resolution"]["entity_key"]
+    entities.absorb("wishlist", "wishlist:stray-test", canonical_key)
+    out = sync.absorb_remote("wishlist", canonical_key, [stray["id"]], g=FAKE)
+    assert out["removed_rows"] == [stray["id"]] and out["canonical_row_updated"]
+    rows = FAKE.docs["WISH"]["t.staging"].strip().split("\n")
+    assert len(rows) == 1 and all(i in rows[0] for i in (w1["id"], w2["id"], stray["id"])), rows
+    sync.sync_record(store.load(stray["id"]), g=FAKE, cfg=cfg); sync.sync_record(w1, g=FAKE, cfg=cfg)
+    assert FAKE.docs["WISH"]["t.staging"].strip().count("\n") == 0
+    assert sync.absorb_remote("wishlist", canonical_key, [stray["id"]], g=FAKE)["removed_rows"] == []  # idempotent
+
+    print("test_sync: ok (12 scenarios)")
 
 
 if __name__ == "__main__":

@@ -26,6 +26,8 @@ def ingest(url: str, destination: str, instruction: str, *, save: bool = False, 
     rec["duplicate_of"] = [e["id"] for e in store.find_by_url(canonical)]
     exact = store.find_exact(rec["dedupe_key"])
     rec["exact_duplicate"] = exact["id"] if exact else ""
+    if exact and save and not force:
+        raise DuplicateError(f"Already saved as {exact['id']} (same URL + destination + instruction). Use --force to save anyway.")
 
     flags = depth.infer(cls, dest, instruction)
     rec["processing"]["depth"] = flags
@@ -222,6 +224,12 @@ def save_record(record_id: str, force: bool = False) -> dict:
     rec["saved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     store.save(rec)  # 1. local canonical record committed first; nothing below can undo this
     rec["cleanup"] = cleanup.cleanup_record(rec)
+    if rec["status"] == "failed":
+        # audit copy only: a record with no usable context must never seed an entity or a Google row
+        rec["export"] = {**rec.get("export", {}), "status": "skipped", "last_error": "not exported: processing failed (reprocess to retry)"}
+        rec["destination_resolution"] = {"action": "n/a", "entity_key": "", "match_reasons": ["processing failed"], "contributing_record_ids": [rec["id"]]}
+        store.write(rec)
+        return rec
     try:
         rec["destination_resolution"] = entities.resolve(rec)  # semantic layer: created / merged / possible_duplicate
     except Exception as exc:
