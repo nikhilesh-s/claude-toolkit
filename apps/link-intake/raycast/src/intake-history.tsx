@@ -79,7 +79,7 @@ export default function History() {
             key={r.id}
             icon={r.saved ? { source: Icon.CheckCircle, tintColor: tag.color } : Icon.Circle}
             title={r.title || r.url}
-            subtitle={`${r.platform} · ${r.destination_title} · ${r.instruction.slice(0, 48)}${r.instruction.length > 48 ? "…" : ""}`}
+            subtitle={`${r.platform} · ${r.destination_title}${r.bulk_origin ? ` · bulk:${r.bulk_origin}${r.bulk_container ? "/" + r.bulk_container : ""}` : ""} · ${r.instruction.slice(0, 40)}${r.instruction.length > 40 ? "…" : ""}`}
             keywords={[r.url, r.destination_title, r.instruction, r.creator, r.id]}
             accessories={[
               ...(rtag ? [{ tag: { value: rtag.text, color: rtag.color }, tooltip: r.resolution_label || r.resolution }] : []),

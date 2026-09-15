@@ -17,12 +17,14 @@ class DuplicateError(RuntimeError):
 
 
 def ingest(url: str, destination: str, instruction: str, *, save: bool = False, force: bool = False,
-           refresh: bool = False) -> dict:
+           refresh: bool = False, batch: dict | None = None) -> dict:
     dest = normalize_destination(destination)
     canonical = canonicalize(url)
     cls, platform = classify(canonical)
     rec = new_record(original_url=url.strip(), canonical_url=canonical, source_class=cls, platform=platform,
                      destination=dest, instruction=instruction.strip())
+    if batch:
+        rec["batch"] = batch  # bulk-ingest provenance: run id, candidate, source origin/container/context
     rec["duplicate_of"] = [e["id"] for e in store.find_by_url(canonical)]
     exact = store.find_exact(rec["dedupe_key"])
     rec["exact_duplicate"] = exact["id"] if exact else ""

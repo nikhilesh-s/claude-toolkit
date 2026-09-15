@@ -87,7 +87,8 @@ def entity_wishlist_row(ent: dict, rec: dict) -> list[str]:
     if prices:
         latest = prices[-1]
         price = f"{latest['price']} (seen {latest['at'][:10]})"
-    why = "\n".join(f"• {w}" for w in _instructions(ent, rec))
+    reasons = _instructions(ent, rec)
+    why = (reasons[-1] if reasons else rec["intent"]["user_instruction"]) + (f"  (+{len(reasons) - 1} earlier reasons in local records)" if len(reasons) > 1 else "")
     return [_date(rec), v.get("product_item") or rec["source"].get("title", ""), v.get("brand", ""), v.get("model", ""), variant, price,
             why, clip(v.get("notes", ""), 400), "\n".join(ent["source_urls"]), ", ".join(ent["record_ids"])]
 

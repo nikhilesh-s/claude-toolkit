@@ -132,13 +132,26 @@ the Merge into Existing / Keep as Separate Item actions in Raycast. History show
 | Scholarships | sheet *Scholarship Tracker* in College Applications / Scholarships | row: Scholarship, Organization, Amount, Deadline, Eligibility, Required Materials, Application Link, Status, Priority, Notes, Source, Date Added, Record ID (needs Sheets API enabled; pending until then) |
 | Inbox | Master Intake only | |
 
+## Bulk ingest
+
+`linkintake bulk scan` reads Apple Reminders (AppleScript, read only, all lists), Apple Notes (notes whose body
+contains a link; the line with the URL plus the previous line is its context), the Reel regression manifest, and
+`file:<path>` (one URL per line, optional text). Links are canonicalized, deduped by URL + inferred destination +
+instruction (provenance kept), checked against existing intakes, and scored: list/folder name first, wording
+near the URL second, generic fallback last. Both confidences must be >= 0.80 to be `ready`; everything else is
+`review`. `bulk review` approves/edits/skips; `bulk run` is a dry-run until `--execute`, then processes
+sequentially with a delay, saving progress after every item (resumable), and never stops on a failed link.
+Records carry `batch` provenance (run id, source origin, list/note) and History shows it.
+Queue files: `~/.link-intake/bulk/<run_id>/candidates.json`.
+
 ## Tests
 
 ```bash
 uv run python tests/test_router.py   # offline: canonical URLs, classes, dedupe, depth
 uv run python tests/test_sync.py     # offline: idempotency, partial, pending retry, remote merge, needs_decision
 uv run python tests/test_entities.py # offline: wishlist/scholarship merge matrix
-uv run python tests/test_history.py  # offline: history rows, re-save refused
+uv run python tests/test_history.py  # offline: history rows, re-save refused, failed record never exports
+uv run python tests/test_bulk.py     # offline: bulk dedupe/inference/review/run with fixtures
 tests/smoke_real.sh                  # the one E2E test: Reel -> personal_ig -> extract -> save (local, export pending)
 tests/regression_reels.sh            # all 10 wishlist Reels as Wishlist intents (cache reused, nothing deleted)
 ```

@@ -55,9 +55,39 @@ Add `--json` before the subcommand for machine-readable output. Destinations: `w
 8. **Did it save?** `linkintake list` (or Raycast → Intake History) is local-first truth: saved time, sync
    status per part, resolution action, last error.
 
+## Bulk ingest ("Use Link Intake to process my saved links")
+
+Same pipeline, three commands, dry-run by default. Sources are read only (AppleScript `get` only; Reminders and
+Notes are never edited, completed, deleted or moved).
+
+```bash
+linkintake bulk scan [--sources reminders,notes,manifest,file:<path>] [--lists "00 Inbox,Wishlist"] [--include-completed] [--notes-limit N]
+linkintake bulk review                       # list candidates needing a decision
+linkintake bulk review --approve c003 c007   # or: --dest c003 wishlist  |  --instruction c003 "…"  |  --skip c009  |  --approve-all [--origin manifest]
+linkintake bulk run                          # dry-run preview of what would be processed
+linkintake bulk run --execute [--limit N] [--delay 2]   # sequential, resumable, never stops on a failed item
+linkintake bulk status
+```
+
+How to run it as Claude:
+1. `bulk scan` and read the summary: found / already ingested / ready / review / invalid. Show Nik the review
+   candidates (URL, source list or note, surrounding text, destination guess with confidence, proposed
+   instruction, reason).
+2. Never guess for a review item: ask Nik, then apply `bulk review --dest/--instruction/--approve/--skip`.
+3. `bulk run` (dry-run) and show the list; only after Nik approves, `bulk run --execute`.
+4. Report processed / saved / merged / possible duplicates / already ingested / failed / Google pending / skipped,
+   and point at `linkintake list` (History shows bulk run id and source).
+
+Inference rules live in `linkintake/bulk.py`: list/folder name is the strongest signal, then the wording next to
+the URL, then a generic instruction (which alone is never enough to auto-run). Both destination and intent
+confidence must be >= 0.80 to be `ready`. The same URL with different nearby wording becomes separate candidates
+(different intents); identical wording from several places collapses into one candidate with provenance. Exact
+existing intakes are marked `existing`; a same-URL, same-destination, new-instruction candidate goes to review.
+
 ## Rules
 
-- Never edit `apps/media-unlocker/test_wishlist_reels.sh`; it is the Reel regression manifest.
+- Never edit `apps/media-unlocker/test_wishlist_reels.sh`; it is the Reel regression manifest (bulk `manifest` source reads it).
+- Never run `bulk run --execute` on the full backlog without Nik's explicit approval of the dry-run.
 - Never commit cookies, tokens, downloaded media, `~/.link-intake`, `~/.media-unlocker`, or connector hostnames.
 - If `linkintake doctor` shows no working LLM backend, tell Nik the fix is
   `CLAUDE_CONFIG_DIR=~/.claude-nebula claude login` and stop; do not fabricate an extraction. Records still
