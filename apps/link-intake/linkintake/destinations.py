@@ -43,6 +43,15 @@ def _title_creator(rec: dict) -> str:
     return " — ".join(x for x in (s.get("title"), s.get("creator")) if x)
 
 
+def user_words(rec: dict) -> str:
+    """What Nik actually wrote. For bulk items with a system-generated instruction, that is the source context."""
+    b = rec.get("batch") or {}
+    if b.get("instruction_origin") == "inferred":
+        ctx = b.get("source_context", "").strip()
+        return f"{ctx} [{b.get('source_origin', 'bulk')}] · inferred: {rec['intent']['user_instruction']}" if ctx else f"inferred: {rec['intent']['user_instruction']}"
+    return rec["intent"]["user_instruction"]
+
+
 def _insight(rec: dict, n: int = 900) -> str:
     e = rec["extraction"]
     tk = e.get("takeaways") or []
@@ -65,7 +74,7 @@ def _sd(rec: dict, *keys: str) -> str:
 def master_row(rec: dict) -> list[str]:
     s, i = rec["source"], rec["intent"]
     return [_date(rec), DESTINATIONS[i["destination"]], s["platform"], clip(_title_creator(rec), 160),
-            i["user_instruction"], _insight(rec), _tags(rec), f"{rec['status']} ({rec['extraction'].get('confidence', 0):.2f})",
+            user_words(rec), _insight(rec), _tags(rec), f"{rec['status']} ({rec['extraction'].get('confidence', 0):.2f})",
             s["original_url"], rec["id"]]
 
 
@@ -88,7 +97,7 @@ def entity_wishlist_row(ent: dict, rec: dict) -> list[str]:
         latest = prices[-1]
         price = f"{latest['price']} (seen {latest['at'][:10]})"
     reasons = _instructions(ent, rec)
-    why = (reasons[-1] if reasons else rec["intent"]["user_instruction"]) + (f"  (+{len(reasons) - 1} earlier reasons in local records)" if len(reasons) > 1 else "")
+    why = (reasons[-1] if reasons else user_words(rec)) + (f"  (+{len(reasons) - 1} earlier reasons in local records)" if len(reasons) > 1 else "")
     return [_date(rec), v.get("product_item") or rec["source"].get("title", ""), v.get("brand", ""), v.get("model", ""), variant, price,
             why, clip(v.get("notes", ""), 400), "\n".join(ent["source_urls"]), ", ".join(ent["record_ids"])]
 
@@ -99,7 +108,7 @@ def _instructions(ent: dict, rec: dict) -> list[str]:
     for rid in ent["record_ids"]:
         try:
             r = rec if rid == rec["id"] else store.load(rid)
-            ins = r["intent"]["user_instruction"]
+            ins = user_words(r)
         except Exception:
             continue
         if ins and ins not in out:

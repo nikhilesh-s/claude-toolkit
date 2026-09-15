@@ -146,6 +146,17 @@ def cmd_resolve(a) -> int:
 def cmd_entities(a) -> int:
     from . import entities, sync
     kind = "wishlist" if a.kind == "wishlist" else "scholarship"
+    if a.detach:
+        key, rid = a.detach
+        local = entities.detach(kind, key, rid)
+        remote = {}
+        if local.get("detached"):
+            ent = entities.get(kind, key)
+            if ent and ent["record_ids"]:
+                remote = sync.absorb_remote(kind, key, [rid])  # rewrite the entity's row without the detached id; drop nothing else
+            sync.sync_record(store.load(rid))  # the detached record gets its own row
+        _out({"local": local, "remote": remote}, a.json)
+        return 0
     if a.absorb:
         if not a.into:
             raise SystemExit("--into <canonical entity key> required")
@@ -398,7 +409,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--entity", help="entity key to merge into (default: the matched candidate)"); s.set_defaults(fn=cmd_resolve)
     s = sub.add_parser("entities", help="list destination entities (wishlist products / scholarship cycles)")
     s.add_argument("kind", choices=["wishlist", "scholarships"]); s.add_argument("--absorb", metavar="STRAY_KEY", help="fold this stray entity into --into")
-    s.add_argument("--into", metavar="CANONICAL_KEY"); s.set_defaults(fn=cmd_entities)
+    s.add_argument("--into", metavar="CANONICAL_KEY"); s.add_argument("--detach", nargs=2, metavar=("ENTITY_KEY", "RECORD_ID"), help="undo a wrong merge")
+    s.set_defaults(fn=cmd_entities)
     s = sub.add_parser("sync-skip", help="exclude records from Google sync (test junk); `sync <id>` re-includes")
     s.add_argument("ids", nargs="*"); s.add_argument("--all-pending", action="store_true"); s.set_defaults(fn=cmd_sync_skip)
     s = sub.add_parser("bulk", help="bulk ingest from Reminders/Notes/manifest/file: scan -> review -> run (dry-run by default)")

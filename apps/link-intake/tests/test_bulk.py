@@ -52,9 +52,26 @@ def main():
     # ambiguous -> review; invalid -> invalid
     assert by["https://example.com/vague-article|inbox"]["status"] == "review"
     assert any(c["status"] == "invalid" for c in cands if "localhost" in c["original_url"])
-    # manifest -> wishlist by container, generic instruction -> review (never auto-run without a real reason)
+    # manifest -> Wishlist product backlog: explicit container, approved buying-details instruction -> ready
     m = by["https://www.instagram.com/reel/BBBBBBB/|wishlist"]
-    assert m["status"] == "review" and m["destination_confidence"] >= 0.85 and m["intent_confidence"] < 0.8
+    assert m["status"] == "ready" and m["destination_confidence"] >= 0.85 and "exact product" in m["inferred_instruction"]
+    # work/tooling link with no destination wording -> skip, never Inbox; with wording -> kept
+    items2 = [{"origin": "notes", "container": "Notes", "title": "nyscents tasks", "text": "Supabase URL:\nhttps://abc.supabase.co/"},
+              {"origin": "notes", "container": "Notes", "title": "site", "text": "website inspo for the landing page\nhttps://github.com/x/y"},
+              {"origin": "reminders", "container": "07 Personal + Home", "title": "video inspo", "text": "https://www.instagram.com/reel/EEEEEEE/"},
+              {"origin": "reminders", "container": "00 Inbox", "title": "Desk stuff", "text": "https://www.instagram.com/reel/FFFFFFF/"},
+              {"origin": "reminders", "container": "00 Inbox", "title": "order", "text": "https://example.com/shop"},
+              {"origin": "notes", "container": "Notes", "title": "act", "text": "create practice tests with realistic pacing and structure\nhttps://github.com/x/act"},
+              {"origin": "notes", "container": "Notes", "title": "logo", "text": "Branch for central logo positioning\nhttps://github.com/x/site/tree/logo"}]
+    c2 = {c["canonical_url"]: c for c in bulk.build_candidates(items2)}
+    assert c2["https://abc.supabase.co/"]["status"] == "skip" and "work/tooling" in c2["https://abc.supabase.co/"]["reason"]
+    assert c2["https://github.com/x/y"]["status"] == "ready" and c2["https://github.com/x/y"]["inferred_destination"] == "design_inspo"
+    assert c2["https://www.instagram.com/reel/EEEEEEE/"]["inferred_destination"] == "personal_ig" and c2["https://www.instagram.com/reel/EEEEEEE/"]["destination_confidence"] >= 0.8
+    assert c2["https://www.instagram.com/reel/EEEEEEE/"]["status"] == "ready" and "video inspo" in c2["https://www.instagram.com/reel/EEEEEEE/"]["inferred_instruction"]
+    assert c2["https://www.instagram.com/reel/FFFFFFF/"]["status"] == "review"
+    assert c2["https://github.com/x/act"]["status"] == "skip", c2["https://github.com/x/act"]  # technique word on a tooling link is not a destination
+    assert c2["https://github.com/x/site/tree/logo"]["status"] == "skip"
+    assert c2["https://example.com/shop"]["status"] == "review"  # lone weak "order" never auto-runs
     # College Apps list + essay wording -> Supplement Ideas ready
     assert by["https://www.youtube.com/watch?v=abc|supplement_ideas"]["status"] == "ready"
     # scholarship wording -> Scholarships
@@ -69,13 +86,13 @@ def main():
     # review actions
     run_id = bulk.new_run(cands, ["fixture"])
     run = bulk.load_run(run_id)
-    bulk.review_update(run, m["id"], approve=True)
+    bulk.review_update(run, m["id"], approve=True)  # already ready; approve is a no-op status-wise
     bulk.review_update(run, by["https://example.com/vague-article|inbox"]["id"], dest="design_inspo", instruction="the layout")
     bulk.review_update(run, d["id"], skip=True)
     bulk.save_run(run)
     run = bulk.load_run(run_id)
     st = {c["id"]: c["status"] for c in run["candidates"]}
-    assert st[m["id"]] == "approved" and st[d["id"]] == "skip"
+    assert st[m["id"]] in ("approved", "ready") and st[d["id"]] == "skip"
     va = next(c for c in run["candidates"] if c["canonical_url"] == "https://example.com/vague-article")
     assert va["status"] == "approved" and va["inferred_destination"] == "design_inspo" and va["inferred_instruction"] == "the layout"
 

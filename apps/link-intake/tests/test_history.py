@@ -51,6 +51,14 @@ def main():
     assert out["saved_at"] and out["export"]["status"] == "skipped" and out["destination_resolution"]["action"] == "n/a"
     assert not [e for e in entities.load("scholarship") if f["id"] in e["record_ids"]]
     assert store.history(20)[0]["id"] == f["id"] and store.history(20)[0]["sync_line"].startswith("Saved locally ✓ · Google skipped")
+    # an LLM-failed record (no extraction) is likewise never exported and never blocks a retry as a duplicate
+    g = new_record(original_url="https://example.com/quota", canonical_url="https://example.com/quota", source_class="web_page", platform="example.com",
+                   destination="wishlist", instruction="x")
+    g["status"] = "needs_review"; g["processing"]["llm_backend"] = "none"; g["errors"] = ["llm: session limit"]
+    store.write_pending(g)
+    out = pipeline.save_record(g["id"])
+    assert out["status"] == "failed" and out["export"]["status"] == "skipped" and store.find_exact(g["dedupe_key"]) is None
+    assert not [e for e in entities.load("wishlist") if g["id"] in e["record_ids"]]
     # exact duplicate with --save is refused before any processing
     try:
         pipeline.ingest("https://example.com/a", "inbox", "x", save=True)
