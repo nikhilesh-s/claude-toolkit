@@ -197,7 +197,11 @@ def main():
     # review: approve with a destination, process now
     ledger = R.load_ledger()
     desk = next(e for e in ledger.values() if e["url"] == "https://www.instagram.com/reel/DESK1/")
-    R.review_update(ledger, desk["id"], dest="wishlist", instruction="identify the desk mat")
+    changed = R.review_apply(ledger, dest=[(desk["id"], "wishlist")], instruction=[(desk["id"], "identify the desk mat")])
+    assert [c["id"] for c in changed] == [desk["id"]] and changed[0]["outcome"] == "QUEUED", changed  # one item, not one per flag
+    cool2 = next(e for e in ledger.values() if e["url"] == "https://example.com/cool2")
+    skipped = R.review_apply(ledger, skip=[cool2["id"], cool2["id"]])
+    assert len(skipped) == 1 and skipped[0]["reason"] == "skipped by user"
     R.save_ledger(ledger)
     done = R.process_queued()
     assert [d["outcome"] for d in done] == ["AUTO_INGESTED"] and store.load(done[0]["record_id"])["intent"]["user_instruction"] == "identify the desk mat"
@@ -231,6 +235,13 @@ def main():
     will = {r["reminder_id"] for r in pv["will_complete"]}
     assert "x-apple-reminder://WISH2" not in will and any(r["why"] == "text changed since the sweep read it" for r in pv["untouched"])
     assert "x-apple-reminder://TWO" not in will and "x-apple-reminder://TOOL" not in will and "x-apple-reminder://FAIL" not in will
+    why = {r["reminder_id"].rsplit("/", 1)[-1]: r["why"] for r in pv["untouched"]}
+    assert why["TWO"] == "skipped by user" and "unsupported" not in why["TWO"], why  # your skip is not labelled unsupported
+    assert "work/tooling" in why["TOOL"] and why["FAIL"] == "failed", why
+    rc = R.load_report()["reconciliation"]
+    assert rc["summary"]["skipped_by_user"] == 1 and "1 skipped by user (left open)." in rc["confirmation"]
+    md = R.load_report()["markdown"]
+    assert "skipped by user" in md and "has links that" not in md
     assert "x-apple-reminder://WISH" in will and "x-apple-reminder://VAGUE" in will  # approved via changed wording and ingested
     assert {c[0] for c in FAKE.calls} == {"read_by_id"}
     os.environ["LINKINTAKE_SCHEDULED"] = "1"

@@ -294,13 +294,10 @@ def cmd_reminders(a) -> int:
         if a.approve or a.dest or a.instruction or a.skip:
             with R.lock():
                 ledger = R.load_ledger()
-                changed = [R.review_update(ledger, i, approve=True) for i in a.approve or []]
-                changed += [R.review_update(ledger, i, dest=d) for i, d in a.dest or []]
-                changed += [R.review_update(ledger, i, instruction=t) for i, t in a.instruction or []]
-                changed += [R.review_update(ledger, i, skip=True) for i in a.skip or []]
+                changed = R.review_apply(ledger, a.approve, a.dest, a.instruction, a.skip)
                 R.save_ledger(ledger)
             processed = R.process_queued(limit=a.limit) if a.execute else []
-            _out({"changed": [R._view(e) for e in changed], "processed": processed,
+            _out({"changed": changed, "processed": processed,
                   "next": "" if a.execute else "process now: linkintake reminders review --execute  (or wait for the next sweep)"}, a.json)
             return 0
         if a.execute:

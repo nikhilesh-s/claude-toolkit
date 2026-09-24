@@ -40,6 +40,9 @@ _CATEGORY = {AUTO_INGESTED: "ingested", ALREADY_INGESTED: "already_known", REVIE
 _FROM_CANDIDATE = {"invalid": SKIPPED_UNSUPPORTED, "skip": SKIPPED_UNSUPPORTED, "existing": ALREADY_INGESTED, "review": REVIEW, "ready": QUEUED}
 _FROM_PROCESS = {"ingested": AUTO_INGESTED, "already_ingested": ALREADY_INGESTED, "review": REVIEW, "deferred": DEFERRED, "failed": FAILED}
 _REMINDER_ID = re.compile(r"^x-apple-reminder://[A-Za-z0-9-]+$")
+USER_SKIP = "skipped by user"
+_WORST_CATEGORY = ("failed", "deferred", "needs_review", "unsupported", "skipped_by_user", "ingested", "already_known")
+_WHY = {"needs_review": "needs review", "deferred": "deferred (will retry)", "failed": "failed", "skipped_by_user": USER_SKIP}
 
 # READ ONLY: look reminders up by id to confirm they are unchanged before a clear is offered or applied.
 READ_BY_ID_SCRIPT = '''on run argv
@@ -301,10 +304,28 @@ def review_update(ledger: dict, eid: str, *, approve=False, dest="", instruction
     if instruction:
         e["instruction"], e["intent_confidence"], e["instruction_origin"] = instruction, 1.0, "user"
     if skip:
-        _set(e, SKIPPED_UNSUPPORTED, "skipped by you in review")
+        _set(e, SKIPPED_UNSUPPORTED, USER_SKIP)
     elif (approve or dest or instruction) and e["outcome"] in (REVIEW, SKIPPED_UNSUPPORTED, FAILED):
         _set(e, QUEUED)
     return e
+
+
+def review_apply(ledger: dict, approve=(), dest=(), instruction=(), skip=()) -> list[dict]:
+    """Apply review decisions; one view per item however many flags touched it."""
+    touched: dict[str, dict] = {}
+    for eid in approve or ():
+        e = review_update(ledger, eid, approve=True)
+        touched[e["id"]] = e
+    for eid, d in dest or ():
+        e = review_update(ledger, eid, dest=d)
+        touched[e["id"]] = e
+    for eid, t in instruction or ():
+        e = review_update(ledger, eid, instruction=t)
+        touched[e["id"]] = e
+    for eid in skip or ():
+        e = review_update(ledger, eid, skip=True)
+        touched[e["id"]] = e
+    return [_view(e) for e in touched.values()]
 
 
 def process_queued(limit=None) -> list[dict]:
@@ -334,11 +355,20 @@ def _next_action(e: dict) -> str:
     return ""
 
 
+def _user_skipped(e: dict) -> bool:
+    """You skipped it in review (not an unsupported link). The second wording is what earlier builds stored."""
+    return e.get("outcome") == SKIPPED_UNSUPPORTED and e.get("reason", "") in (USER_SKIP, "skipped by you in review")
+
+
+def _link_category(l: dict) -> str:
+    return "skipped_by_user" if l.get("skipped_by_user") else _CATEGORY[l["outcome"]]
+
+
 def _view(e: dict) -> dict:
     return {"id": e["id"], "outcome": e["outcome"], "list": e["list"], "title": e["title"], "text": e.get("text", "")[:300],
             "url": e["url"], "destination": e["destination"], "destination_title": DESTINATIONS.get(e["destination"], e["destination"]),
             "destination_confidence": e.get("destination_confidence", 0), "instruction": e["instruction"],
-            "reason": e.get("last_error") if e["outcome"] in (DEFERRED, FAILED) and e.get("last_error") else e.get("reason", ""),
+            "reason": USER_SKIP if _user_skipped(e) else e.get("last_error") if e["outcome"] in (DEFERRED, FAILED) and e.get("last_error") else e.get("reason", ""),
             "next_action": _next_action(e), "record_id": e.get("record_id", ""), "resolution": e.get("resolution", ""),
             "export_status": e.get("export_status", ""), "reminder_ids": e.get("reminder_ids", []), "attempts": e.get("attempts", 0)}
 
@@ -352,25 +382,27 @@ def reconcile(links: list, ledger: dict) -> dict:
         if all(l["hash"] != h for l in r["links"]):
             e = ledger.get(h, {})
             r["links"].append({"hash": h, "entry_id": e.get("id", ""), "url": e.get("url", ""), "outcome": e.get("outcome", QUEUED),
-                               "record_id": e.get("record_id", "")})
+                               "record_id": e.get("record_id", ""), "reason": e.get("reason", ""), "skipped_by_user": _user_skipped(e)})
     rems = list(by.values())
     for r in rems:
         outs = [l["outcome"] for l in r["links"]]
         r["status"] = next(o for o in _WORST if o in outs)
-        r["category"] = _CATEGORY[r["status"]]
-        blockers = sorted({_CATEGORY[o] for o in outs if o not in CLEARABLE})
-        r["eligible_to_clear"] = bool(r["reminder_id"]) and not blockers
-        r["why_not"] = ("has links that " + ", ".join(blockers).replace("_", " ")) if blockers else ("" if r["reminder_id"] else "no stable reminder id")
+        cats = {_link_category(l) for l in r["links"]}
+        r["category"] = next(c for c in _WORST_CATEGORY if c in cats)
+        why = [_WHY.get(_link_category(l)) or l["reason"] or "unsupported" for l in r["links"] if l["outcome"] not in CLEARABLE]
+        r["eligible_to_clear"] = bool(r["reminder_id"]) and not why
+        r["why_not"] = "; ".join(dict.fromkeys(why)) or ("" if r["reminder_id"] else "no stable reminder id")
     s = Counter(r["category"] for r in rems)
     elig = sum(r["eligible_to_clear"] for r in rems)
-    summary = {"reminders_found": len(rems), **{k: s[k] for k in ("ingested", "already_known", "needs_review", "deferred", "failed", "unsupported")},
+    summary = {"reminders_found": len(rems), **{k: s[k] for k in ("ingested", "already_known", "needs_review", "deferred", "failed", "unsupported", "skipped_by_user")},
                "eligible_to_clear": elig, "remain_untouched": len(rems) - elig}
     return {"summary": summary, "reminders": rems, "confirmation": confirmation(summary)}
 
 
 def confirmation(s: dict) -> str:
     words = [("ingested", "ingested successfully"), ("already_known", "already known"), ("needs_review", "needs review"),
-             ("deferred", "deferred (Claude/quota — will retry)"), ("failed", "failed"), ("unsupported", "unsupported (left alone)")]
+             ("deferred", "deferred (Claude/quota — will retry)"), ("failed", "failed"), ("unsupported", "unsupported (left alone)"),
+             ("skipped_by_user", "skipped by user (left open)")]
     lines = [f"{s['reminders_found']} URL reminders found."] + [f"{s[k]} {w}." for k, w in words if s[k]]
     return "\n".join(lines) + (f"\n\n{s['eligible_to_clear']} reminders are fully handled and eligible to clear.\n"
                                f"{s['remain_untouched']} will remain untouched.")
@@ -389,7 +421,8 @@ def _finish(run_id, started, scheduled, ledger, new, touched, links, error: str 
                       "other_destinations": dict(Counter(e["destination"] for e in ing if e["destination"] not in ("wishlist", "scholarships"))),
                       "already_ingested": c[ALREADY_INGESTED], "needs_review": c[REVIEW], "deferred": c[DEFERRED] + c[QUEUED], "failed": c[FAILED],
                       "google_pending": sum(1 for e in ing if e.get("export_status") in ("export_pending", "partial", "not_configured", "blocked")),
-                      "skipped_unsupported": c[SKIPPED_UNSUPPORTED]},
+                      "skipped_unsupported": sum(1 for e in this.values() if e["outcome"] == SKIPPED_UNSUPPORTED and not _user_skipped(e)),
+                      "skipped_by_user": sum(1 for e in this.values() if _user_skipped(e))},
            "items": [_view(e) for e in this.values()],
            "links": [[h, {k: p.get(k, "") for k in ("source_id", "container", "title", "text", "context", "content_hash")}] for h, p in links],
            "clear_decision": {"action": "pending"}}
@@ -463,7 +496,7 @@ def markdown(rep: dict) -> str:
              ("Auto-ingested", k["auto_ingested"]), ("Wishlist created", k["wishlist_created"]), ("Wishlist merged", k["wishlist_merged"]),
              ("Scholarships created / merged", f"{k['scholarships_created']} / {k['scholarships_merged']}"), ("Other destinations", other),
              ("Already ingested", k["already_ingested"]), ("Needs review", k["needs_review"]), ("Deferred due to Claude/quota", k["deferred"]),
-             ("Failed", k["failed"]), ("Google pending", k["google_pending"]), ("Skipped unsupported", k["skipped_unsupported"])]], ""]
+             ("Failed", k["failed"]), ("Google pending", k["google_pending"]), ("Skipped unsupported", k["skipped_unsupported"]), ("Skipped by user", k.get("skipped_by_user", 0))]], ""]
     if rep["attention"]:
         L += ["## Needs attention", ""]
         for i in rep["attention"]:
