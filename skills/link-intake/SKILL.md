@@ -1,6 +1,6 @@
 ---
 name: link-intake
-description: Ingest almost any URL (Reel, TikTok, YouTube, article, PDF, Google Doc) with a destination and a one-line instruction, extract only what Nik cares about, and export a lightweight record to the Intake Master Google Doc plus a destination bank. Wraps Media Unlocker; never stores whole media.
+description: Ingest almost any URL (Reel, TikTok, YouTube, article, PDF, Google Doc) with a destination and a one-line instruction, extract only what Nik cares about, and export a lightweight record to the Intake Master Google Doc plus a destination bank. Also runs the weekly Apple Reminders intake sweep ("run my weekly Reminder intake", "what's pending from my Reminder sweep", "retry anything that hit my Claude quota"). Wraps Media Unlocker; never stores whole media.
 ---
 
 # Link Intake
@@ -58,8 +58,8 @@ Add `--json` before the subcommand for machine-readable output. Destinations: `w
 
 ## Bulk ingest ("Use Link Intake to process my saved links")
 
-Same pipeline, three commands, dry-run by default. Sources are read only (AppleScript `get` only; Reminders and
-Notes are never edited, completed, deleted or moved).
+Same pipeline, three commands, dry-run by default. Sources are read only (AppleScript `get` only; `bulk` never edits,
+completes, deletes or moves a reminder or note. The only completion path anywhere is `reminders clear --confirm`, below).
 
 ```bash
 linkintake bulk scan [--sources reminders,notes,manifest,file:<path>] [--lists "00 Inbox,Wishlist"] [--include-completed] [--notes-limit N]
@@ -84,6 +84,32 @@ the URL, then a generic instruction (which alone is never enough to auto-run). B
 confidence must be >= 0.80 to be `ready`. The same URL with different nearby wording becomes separate candidates
 (different intents); identical wording from several places collapses into one candidate with provenance. Exact
 existing intakes are marked `existing`; a same-URL, same-destination, new-instruction candidate goes to review.
+
+## Weekly Reminder intake ("Run my weekly Reminder intake")
+
+Apple Reminders only (never Notes). Same router, adapters, Claude extraction, local store, duplicate layers,
+entities and Google sync as Intake Link; the logic is `linkintake/reminders.py`. Every URL-bearing reminder ends as
+`AUTO_INGESTED | REVIEW | ALREADY_INGESTED | DEFERRED | FAILED | SKIPPED_UNSUPPORTED`. A sweep never changes a
+reminder; clearing is a separate step that only ever marks complete (never deletes) and needs Nik's yes.
+
+| Nik says | You run |
+|---|---|
+| "Run my weekly Reminder intake." | `linkintake reminders run` (dry run) → show it → `linkintake reminders run --execute` → show the confirmation block from the report → **ask** whether to clear → only on yes: `linkintake reminders clear` (preview), show the exact list, then `linkintake reminders clear --confirm <token>` |
+| "What's pending from my Reminder sweep?" | `linkintake reminders report` (attention section) and `linkintake reminders review` |
+| "Retry anything that hit my Claude quota." | `linkintake reminders retry-deferred` (add `--include-failed` only if Nik asks) |
+| "Show me what the Reminder sweep saved this week." | `linkintake --json reminders report` → list items with `AUTO_INGESTED` / `ALREADY_INGESTED`; `linkintake show <record_id>` for detail |
+
+Other commands: `reminders scan` (read-only listing), `reminders review --approve ID [--dest ID DEST] [--instruction ID "…"] --execute`
+or `--skip ID`, `reminders clear --keep`, `reminders schedule install|status|remove [--weekday sun --time 19:00] [--dry-run]`.
+
+How to run it as Claude:
+1. Scan → process → report → ask → optionally clear. Never skip the ask, never pass `--confirm` with a token Nik has not
+   seen the list for, and never clear REVIEW / DEFERRED / FAILED / unsupported reminders (the CLI refuses anyway).
+2. For REVIEW items, show list, original wording, URL, destination guess and reason; ask; never guess a destination.
+3. DEFERRED means Claude was unavailable (quota, logged out, timeout, empty answer): nothing was saved, nothing exported,
+   the candidate is kept. If the reason says not logged in, tell Nik `CLAUDE_CONFIG_DIR=~/.claude-nebula claude login`.
+4. Do not install, change or remove the weekly LaunchAgent unless Nik asks; show `schedule install --dry-run` first.
+   Scheduled runs process and report only; they can never clear.
 
 ## Rules
 

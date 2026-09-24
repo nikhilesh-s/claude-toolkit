@@ -244,6 +244,128 @@ def cmd_bulk(a) -> int:
     return 2
 
 
+def _background(argv: list[str]) -> dict:
+    """Start this same command detached (Raycast returns at once; the sweep survives the window closing)."""
+    import subprocess
+    from . import reminders
+    with reminders.lock():  # fail fast if one is already running
+        pass
+    log = reminders.SWEEP_DIR / "background.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    args = [x for x in argv if x not in ("--background", "--json")]
+    with open(log, "a") as fh:
+        p = subprocess.Popen([sys.executable, "-m", "linkintake.cli", *args], stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                             start_new_session=True, cwd=str(Path.home()))
+    return {"started": True, "pid": p.pid, "log": str(log), "command": "linkintake " + " ".join(args)}
+
+
+def cmd_reminders(a) -> int:
+    from . import reminders as R, schedule
+    lists = [x.strip() for x in a.lists.split(",") if x.strip()] if a.lists else None
+    inc = True if a.include_completed else None
+    if getattr(a, "background", False):
+        _out(_background(sys.argv[1:]), a.json)
+        return 0
+    act = a.action
+    if act in ("scan", "run") and not getattr(a, "execute", False):
+        pv = R.preview(lists=lists, include_completed=inc, limit=a.limit)
+        if a.json:
+            print(json.dumps(pv, ensure_ascii=False))
+        else:
+            print(f"{'scan' if act == 'scan' else 'run (dry run)'}: {pv['urls_discovered']} URLs in {pv['reminders_with_urls']} reminders · "
+                  f"{pv['previously_accounted']} already accounted for · {pv['new_candidates']} new {pv['new_by_outcome']}\n"
+                  "(Reminders read only; nothing processed, saved or changed)\n")
+            rows = pv["new"] if act == "scan" else pv["would_process"]
+            print(("New links:" if act == "scan" else f"Would process ({pv['over_cap']} more over the per-run cap):"))
+            for i in rows:
+                print(f"  {i['id']} [{i['outcome']:19s}] {i['destination_title']:30s} [{i['list']}] {i['title'][:50]}\n      {i['url']}\n      {i['reason'][:140]}")
+            if act == "run":
+                print("\nRun for real: linkintake reminders run --execute")
+        return 0
+    if act == "run":
+        rep = R.sweep(scheduled=a.scheduled, lists=lists, include_completed=inc, limit=a.limit, notify=not a.no_notify)
+        print(json.dumps(rep, ensure_ascii=False) if a.json else R.markdown(rep))
+        return 0 if rep["status"] == "ok" else 1
+    if act == "retry-deferred":
+        res = R.retry_deferred(include_failed=a.include_failed, limit=a.limit)
+        _out(res, a.json)
+        return 0
+    if act == "review":
+        if a.approve or a.dest or a.instruction or a.skip:
+            with R.lock():
+                ledger = R.load_ledger()
+                changed = [R.review_update(ledger, i, approve=True) for i in a.approve or []]
+                changed += [R.review_update(ledger, i, dest=d) for i, d in a.dest or []]
+                changed += [R.review_update(ledger, i, instruction=t) for i, t in a.instruction or []]
+                changed += [R.review_update(ledger, i, skip=True) for i in a.skip or []]
+                R.save_ledger(ledger)
+            processed = R.process_queued(limit=a.limit) if a.execute else []
+            _out({"changed": [R._view(e) for e in changed], "processed": processed,
+                  "next": "" if a.execute else "process now: linkintake reminders review --execute  (or wait for the next sweep)"}, a.json)
+            return 0
+        if a.execute:
+            _out({"processed": R.process_queued(limit=a.limit)}, a.json)
+            return 0
+        rows = R.review_items()
+        if a.json:
+            print(json.dumps(rows, ensure_ascii=False))
+        else:
+            for i in rows:
+                print(f"{i['id']}  [{i['list']}] {i['title'][:60]}\n    {i['url']}\n    guess: {i['destination_title']} ({i['destination_confidence']:.2f}) · {i['reason'][:140]}\n    next: {i['next_action']}")
+            print(f"{len(rows)} item(s) need review")
+        return 0
+    if act == "report":
+        rep = R.load_report(a.run)
+        print(json.dumps(rep, ensure_ascii=False) if a.json else R.markdown(rep))
+        return 0
+    if act == "clear":
+        if a.keep:
+            _out(R.clear_keep(a.run), a.json)
+            return 0
+        if a.confirm:
+            res = R.clear_confirm(a.confirm, a.run)
+            if a.json:
+                print(json.dumps(res, ensure_ascii=False))
+            else:
+                print(f"Marked {len(res['completed'])} reminders complete (none deleted). {len(res['failed'])} could not be completed. {res['untouched']} left untouched.")
+                for r in res["completed"]:
+                    print(f"  ✓ [{r['list']}] {r['title']}")
+                for r in res["failed"]:
+                    print(f"  ✗ [{r['list']}] {r['title']}")
+            return 0 if not res["failed"] else 1
+        pv = R.clear_preview(a.run)
+        if a.json:
+            print(json.dumps(pv, ensure_ascii=False))
+        else:
+            print(f"Preview only; nothing changed. Run {pv['run_id']}. Action: {pv['action']}.\n")
+            print(f"{len(pv['will_complete'])} reminders would be marked complete:")
+            for r in pv["will_complete"]:
+                print(f"  • [{r['list']}] {r['title'] or '(no title)'}  — " + ", ".join(f"{l['outcome']} {l['record_id']}" for l in r["links"]))
+            print(f"\n{len(pv['untouched'])} will remain untouched:")
+            for r in pv["untouched"]:
+                print(f"  • [{r['list']}] {r['title'] or '(no title)'}  — {r['why']}")
+            print(f"\nTo confirm: {pv['confirm_command']}" if pv["token"] else "\nNothing is eligible to clear.")
+            print("To keep everything: linkintake reminders clear --keep")
+        return 0
+    if act == "schedule":
+        if a.op == "install":
+            res = schedule.install(a.weekday, a.time, dry_run=a.dry_run)
+        elif a.op == "remove":
+            res = schedule.remove()
+        else:
+            res = schedule.status()
+        if a.json:
+            print(json.dumps(res, ensure_ascii=False))
+        else:
+            for k, v in res.items():
+                if k != "plist":
+                    print(f"{k:22s} {v}")
+            if res.get("dry_run"):
+                print("\n" + res["plist"] + "\nNot installed (dry run). Install: linkintake reminders schedule install" + f" --weekday {a.weekday} --time {a.time}")
+        return 0
+    return 2
+
+
 def cmd_google_setup(a) -> int:
     from . import google_setup
     google_setup.run()
@@ -443,6 +565,33 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--execute", action="store_true", help="run: actually process (default is dry-run preview)")
     s.add_argument("--delay", type=float, default=2.0, help="run: seconds between items")
     s.set_defaults(fn=cmd_bulk)
+    s = sub.add_parser("reminders", help="weekly Apple Reminders intake: scan, run (dry by default), review, retry, report, clear, schedule")
+    rsub = s.add_subparsers(dest="action", required=True)
+
+    def rp(name, help_):
+        r = rsub.add_parser(name, help=help_)
+        r.add_argument("--lists", default="", help="only these Reminders lists (comma separated); default config reminders.lists or all")
+        r.add_argument("--include-completed", action="store_true")
+        r.add_argument("--limit", type=int, default=None, help="max Claude extractions this run (default config reminders.max_items_per_run)")
+        r.add_argument("--run", default="", help="report/clear: run id (default: latest)")
+        r.set_defaults(fn=cmd_reminders)
+        return r
+    rp("scan", "read-only: every URL in Reminders with its inferred destination; new vs already accounted for")
+    r = rp("run", "dry run by default; --execute processes new + deferred items and writes the report")
+    r.add_argument("--execute", action="store_true"); r.add_argument("--scheduled", action="store_true", help=argparse.SUPPRESS)
+    r.add_argument("--no-notify", action="store_true"); r.add_argument("--background", action="store_true", help="start detached and return")
+    r = rp("review", "list REVIEW items; --approve/--dest/--instruction/--skip, then --execute to process approved items now")
+    r.add_argument("--approve", nargs="*", metavar="ID"); r.add_argument("--dest", nargs=2, action="append", metavar=("ID", "DESTINATION"))
+    r.add_argument("--instruction", nargs=2, action="append", metavar=("ID", "TEXT")); r.add_argument("--skip", nargs="*", metavar="ID")
+    r.add_argument("--execute", action="store_true"); r.add_argument("--background", action="store_true")
+    r = rp("retry-deferred", "retry items deferred by Claude quota/login/timeout (idempotent)")
+    r.add_argument("--include-failed", action="store_true"); r.add_argument("--background", action="store_true")
+    rp("report", "latest sweep report (or --run ID); --json for Raycast")
+    r = rp("clear", "preview which fully-handled reminders would be marked complete; --confirm TOKEN to do it; --keep to leave all")
+    g_ = r.add_mutually_exclusive_group(); g_.add_argument("--confirm", metavar="TOKEN", default=""); g_.add_argument("--keep", action="store_true")
+    r = rp("schedule", "weekly LaunchAgent: install [--weekday sun --time 19:00 --dry-run] | status | remove")
+    r.add_argument("op", choices=["install", "status", "remove"]); r.add_argument("--weekday", default="sun"); r.add_argument("--time", default="19:00")
+    r.add_argument("--dry-run", action="store_true", help="install: print the plist, change nothing")
     sub.add_parser("google-setup", help="one-time: pick/create the destination docs, folders and sheet; persists IDs").set_defaults(fn=cmd_google_setup)
     sub.add_parser("google-audit", help="read-only: signed-in Google identity + owner of every configured target").set_defaults(fn=cmd_google_audit)
     s = sub.add_parser("list", help="history: saved records and unsaved reviews, newest first")

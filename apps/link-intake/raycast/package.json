@@ -23,6 +23,13 @@
       "mode": "view"
     },
     {
+      "name": "reminder-intake",
+      "title": "Reminder Intake",
+      "subtitle": "Link Intake",
+      "description": "Weekly Apple Reminders sweep: latest report, review, retry, and (only with your confirmation) clear processed reminders",
+      "mode": "view"
+    },
+    {
       "name": "sync-pending",
       "title": "Sync Pending",
       "subtitle": "Link Intake",
