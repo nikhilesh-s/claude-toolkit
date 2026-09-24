@@ -13,7 +13,10 @@ DEFAULTS: dict = {
     "google": {
         # auto = sync on every save when ~/.link-intake/google/{client,token}.json exist; off = never.
         "export_mode": "auto",
-        "account": "",  # personal email recorded by google-auth
+        "account": "",  # personal email recorded by google-auth (informational only)
+        # The ONLY account link-intake may write as, and the owner every destination file/folder must have.
+        # Verified live via userinfo + Drive owners before every write; empty = all writes refused.
+        "required_account": "niksuravarjjala@gmail.com",
         # Exact Drive IDs chosen once by `linkintake google-setup`. Never discovered by name at save time.
         "targets": {
             "master_doc": "",

@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timezone
 
 from . import config, destinations as D, store
-from .google_api import Google, GoogleError, doc_text, doc_url, is_configured, sheet_url
+from .google_api import Google, GoogleError, OwnershipError, doc_text, doc_url, is_configured, sheet_url
 from .records import empty_export, empty_sync
 
 DEFAULT_BUDGET_S = 25
@@ -54,6 +54,7 @@ def write_master(g: Google, rec: dict, cfg: dict) -> dict:
     doc_id = _targets(cfg).get("master_doc")
     if not doc_id:
         raise GoogleError(412, "Master Intake doc not configured: run `linkintake google-setup`")
+    g.assert_owned(doc_id, "Intake Master")  # explicit; request() enforces it again on every write
     if not _doc_has(g, doc_id, rec["id"]):
         g.doc_append_table_row(doc_id, D.master_row(rec), D.MASTER_HEADER, link_columns=(8,))
     return {"remote_file_id": doc_id, "remote_ref": doc_url(doc_id)}
@@ -83,6 +84,7 @@ def write_destination(g: Google, rec: dict, cfg: dict) -> dict:
     fid = t.get(key)
     if not fid:
         raise GoogleError(412, f"{D.DOC_TITLES.get(key, key)} not configured: run `linkintake google-setup`")
+    g.assert_owned(fid, D.DOC_TITLES.get(key, "Wishlist"))
     if kind == "wishlist_tab":
         tab = t.get("wishlist_tab_id")
         if not tab:
@@ -126,6 +128,10 @@ def _attempt(part: dict, fn) -> bool:
         part["status"] = "needs_decision"
         part["last_error"] = str(exc)
         return False
+    except OwnershipError as exc:  # wrong account or foreign-owned target: blocked, never written
+        part["status"] = "blocked"
+        part["last_error"] = str(exc)
+        return False
     except GoogleError as exc:
         part["status"] = "failed"
         part["last_error"] = str(exc)
@@ -152,6 +158,14 @@ def sync_record(rec: dict, g: Google | None = None, cfg: dict | None = None, per
         return ex
     try:
         g = g or Google()
+        g.verify_identity()
+    except OwnershipError as exc:
+        ex["status"] = "blocked"
+        ex["last_error"] = str(exc)
+        ex["last_attempt"] = _now()
+        if persist:
+            store.write(rec)
+        return ex
     except GoogleError as exc:
         ex["status"] = "export_pending"
         ex["last_error"] = str(exc)
@@ -162,6 +176,8 @@ def sync_record(rec: dict, g: Google | None = None, cfg: dict | None = None, per
     d_ok = ex["destination_sync"]["status"] == "synced" or _attempt(ex["destination_sync"], lambda: write_destination(g, rec, cfg))
     if ex["destination_sync"]["status"] == "needs_decision":
         ex["status"] = "needs_decision"
+    elif "blocked" in (ex["master_sync"]["status"], ex["destination_sync"]["status"]):
+        ex["status"] = "blocked"  # local save stands; retried by `sync` once the target is personal-owned
     else:
         ex["status"] = "synced" if (m_ok and d_ok) else "partial" if (m_ok or d_ok) else "export_pending"
     ex["last_error"] = "" if ex["status"] == "synced" else (ex["master_sync"]["last_error"] or ex["destination_sync"]["last_error"])
@@ -180,7 +196,7 @@ def pending_records() -> list[dict]:
             rec = store.load(e["id"])
         except FileNotFoundError:
             continue
-        if rec.get("saved_at") and rec.get("export", {}).get("status") in {"export_pending", "partial", "not_configured", None}:  # needs_decision waits for the user
+        if rec.get("saved_at") and rec.get("export", {}).get("status") in {"export_pending", "partial", "not_configured", "blocked", None}:  # needs_decision waits for the user
             out.append(rec)
     return out
 
@@ -203,6 +219,8 @@ def sync_pending(limit: int = 5, budget_s: float = DEFAULT_BUDGET_S, exclude: st
         done.append({"id": rec["id"], "status": rec["export"]["status"], "error": rec["export"].get("last_error", "")})
         if rec["export"]["status"] == "export_pending" and rec["export"].get("last_error", "").startswith("Google API 0"):
             break  # Google unreachable; stop burning the budget
+        if rec["export"]["status"] == "blocked" and not getattr(g, "identity", "x"):
+            break  # wrong signed-in account: every record would be refused
     return done
 
 
@@ -247,6 +265,8 @@ def summary_line(ex: dict, rec: dict | None = None) -> str:
     tail = ""
     if rec and rec.get("destination_resolution", {}).get("action") in ("merged", "possible_duplicate") or (rec and rec.get("destination_resolution", {}).get("variant_of")):
         tail = " · " + describe(rec["destination_resolution"], rec["intent"]["destination"])
+    if st == "blocked":
+        return "Saved locally ✓ · Google BLOCKED (not personal-owned)" + tail
     if st == "needs_decision":
         return "Saved locally ✓ · " + (tail.strip(" ·") or "possible duplicate — review needed")
     if st == "synced":

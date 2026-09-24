@@ -6,6 +6,7 @@ has a timeout so a slow Google never hangs a Raycast save."""
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -21,6 +22,10 @@ GOOGLE_DIR = config.STATE_DIR / "google"
 CLIENT_PATH = GOOGLE_DIR / "client.json"
 TOKEN_PATH = GOOGLE_DIR / "token.json"
 DEFAULT_TIMEOUT = 15
+USERINFO = "https://www.googleapis.com/oauth2/v3/userinfo"
+DRIVE_FILES = "https://www.googleapis.com/drive/v3/files"
+# Every mutating Docs/Sheets endpoint this client uses names its file in the path; a Drive create names it in body.parents.
+_WRITE_ID = re.compile(r"^https://(?:docs\.googleapis\.com/v1/documents|sheets\.googleapis\.com/v4/spreadsheets)/([A-Za-z0-9_-]+)[:/]")
 
 
 class GoogleError(RuntimeError):
@@ -34,8 +39,37 @@ class GoogleError(RuntimeError):
         return self.status == 403 and "sheets.googleapis.com" in self.body
 
 
+class OwnershipError(GoogleError):
+    """The signed-in identity, or a file about to be written, is not the required personal account. Never bypassed."""
+
+    def __init__(self, message: str):
+        RuntimeError.__init__(self, message)
+        self.status = 403
+        self.body = message
+
+
 def is_configured() -> bool:
     return CLIENT_PATH.exists() and TOKEN_PATH.exists()
+
+
+def required_account(cfg: dict | None = None) -> str:
+    return ((cfg or config.load())["google"].get("required_account") or "").strip().lower()
+
+
+def owner_emails(meta: dict) -> list[str]:
+    """Owner addresses from Drive metadata. Shared-drive files have none, so they never count as personal-owned."""
+    return [o["emailAddress"].lower() for o in meta.get("owners") or [] if o.get("emailAddress")]
+
+
+def write_targets(url: str, body: dict | None) -> list[str]:
+    """File ids a mutating request touches. An endpoint we do not recognise is refused (fail closed)."""
+    base = url.split("?")[0]
+    m = _WRITE_ID.match(base)
+    if m:
+        return [m.group(1)]
+    if base == DRIVE_FILES:  # create: the parent must be ours; a root-level file lands in the verified identity's own Drive
+        return list((body or {}).get("parents") or [])
+    raise OwnershipError(f"Refusing unrecognized Google write endpoint {base}. Google write blocked.")
 
 
 class Google:
@@ -44,10 +78,43 @@ class Google:
             raise GoogleError(401, "Google not authorized. Run `linkintake google-auth` (personal account).")
         self.client = json.loads(CLIENT_PATH.read_text())
         self.tok = json.loads(TOKEN_PATH.read_text())
-        self.account = self.tok.get("email", "")
+        self.account = self.tok.get("email", "")  # what token.json claims; never trusted for writes
+        self.required = required_account()
+        self.identity = ""  # set once userinfo confirms the required account
+        self._owned: dict[str, str] = {}  # file id -> name, verified personal-owned by this client
         self.timeout = timeout
         self._access = self.tok.get("token", "")
         self._exp = float(self.tok.get("expires_at", 0))
+
+    # ---- account invariant: request() runs these before every mutating call
+    def whoami(self) -> str:
+        return self.request("GET", USERINFO).get("email", "").strip().lower()
+
+    def verify_identity(self) -> str:
+        if self.identity:
+            return self.identity
+        if not self.required:
+            raise OwnershipError("google.required_account is not configured. Google write blocked.")
+        email = self.whoami()
+        if email != self.required or email.endswith(".edu"):  # a college account is never valid, even if misconfigured as required
+            raise OwnershipError(f"Signed-in Google account {email or '(unknown)'} is not the required account {self.required}. "
+                                 "Google write blocked. Re-run `linkintake google-auth` with the personal account.")
+        self.identity = email
+        return email
+
+    def assert_owned(self, file_id: str, label: str = "") -> dict:
+        """Drive metadata must list the required account as owner. Shared, editable or accessible is not enough."""
+        self.verify_identity()
+        if file_id in self._owned:
+            return {"id": file_id, "name": self._owned[file_id]}
+        meta = self.drive_meta(file_id)
+        owners = owner_emails(meta)
+        if self.required not in owners:
+            raise OwnershipError(f"Configured target {label or meta.get('name') or file_id} is owned by "
+                                 f"{', '.join(owners) or 'a shared drive (no personal owner)'} instead of required account "
+                                 f"{self.required}. Google write blocked.")
+        self._owned[file_id] = meta.get("name", "")
+        return meta
 
     # ---- auth
     def token(self) -> str:
@@ -72,6 +139,10 @@ class Google:
         return self._access
 
     def request(self, method: str, url: str, body: dict | None = None, params: dict | None = None) -> dict:
+        if method != "GET":  # the single write chokepoint: identity first, then ownership of every file touched
+            self.verify_identity()
+            for fid in write_targets(url, body):
+                self.assert_owned(fid)
         if params:
             url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params, doseq=True)
         data = json.dumps(body).encode() if body is not None else None
@@ -87,17 +158,21 @@ class Google:
             raise GoogleError(0, f"unreachable: {type(e).__name__}: {e}") from None
 
     # ---- Drive
-    def drive_search(self, q: str, fields: str = "id,name,mimeType,parents,modifiedTime", page_size: int = 25) -> list[dict]:
+    def drive_search(self, q: str, fields: str = "id,name,mimeType,parents,modifiedTime,owners(emailAddress)", page_size: int = 25) -> list[dict]:
         res = self.request("GET", "https://www.googleapis.com/drive/v3/files",
                            params={"q": q + " and trashed = false", "fields": f"files({fields})", "pageSize": page_size,
                                    "orderBy": "modifiedTime desc", "includeItemsFromAllDrives": "true", "supportsAllDrives": "true"})
         return res.get("files", [])
 
-    def drive_find_by_name(self, name: str, mime: str, parent: str = "", contains: bool = False) -> list[dict]:
+    def drive_find_by_name(self, name: str, mime: str, parent: str = "", contains: bool = False, owned_only: bool = True) -> list[dict]:
+        """Only files owned by the required account unless owned_only=False (audit). Shared/foreign files are never offered."""
         q = f"name {'contains' if contains else '='} '{name.replace(chr(39), chr(92) + chr(39))}' and mimeType = '{mime}'"
         if parent:
             q += f" and '{parent}' in parents"
-        return self.drive_search(q)
+        if owned_only:
+            q += f" and '{self.required}' in owners"
+        items = self.drive_search(q)
+        return [it for it in items if self.required in owner_emails(it)] if owned_only else items
 
     def drive_create(self, name: str, mime: str, parent: str = "") -> str:
         body = {"name": name, "mimeType": mime}
@@ -107,7 +182,7 @@ class Google:
 
     def drive_meta(self, file_id: str) -> dict:
         return self.request("GET", f"https://www.googleapis.com/drive/v3/files/{file_id}",
-                            params={"fields": "id,name,mimeType,parents,owners(emailAddress),modifiedTime,webViewLink", "supportsAllDrives": "true"})
+                            params={"fields": "id,name,mimeType,parents,owners(emailAddress),modifiedTime,webViewLink,trashed", "supportsAllDrives": "true"})
 
     def drive_path(self, file_id: str, depth: int = 4) -> str:
         """'My Drive / College Applications / Scholarships' for display during setup."""

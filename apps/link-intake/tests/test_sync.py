@@ -26,6 +26,12 @@ class FakeGoogle:
         self.calls = []
         self.account = "me@example.com"
 
+    def verify_identity(self):  # the real guard is covered by tests/test_ownership.py
+        return self.account
+
+    def assert_owned(self, file_id, label=""):
+        return {"id": file_id}
+
     def _maybe_fail(self, name):
         self.calls.append(name)
         if name in self.fail:

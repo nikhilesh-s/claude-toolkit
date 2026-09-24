@@ -31,6 +31,15 @@ Files: `~/.link-intake/google/client.json` (OAuth client id/secret) and `token.j
 Nothing reads gswitch, workspace-mcp or the Tailscale Funnel; the gswitch Cloud project is reused only as the
 OAuth app registration.
 
+**Account invariant (fail closed).** `google.required_account` (default `niksuravarjjala@gmail.com`) is the only account
+link-intake writes as. Before the first write, the live identity is checked through Google userinfo (not token.json);
+before every write, `Google.request()` checks Drive metadata and refuses unless that account *owns* the file (shared,
+editable or accessible is not enough; shared-drive files have no owner and are refused; folders used for creation too).
+A refused write leaves the local save intact and sets the export to `blocked` with the owner named. `google-setup` only
+offers and accepts files the account owns and shows the owner next to every candidate. `linkintake google-audit
+[--json]` is a read-only report of the signed-in identity and the owner of every configured target; `doctor` shows the
+same per target.
+
 ## Sync behaviour
 
 Save = (1) local canonical record committed, (2) Master Intake row, (3) destination write, (4) a bounded sweep
@@ -54,6 +63,7 @@ linkintake resolve <id> --merge|--new  # decide a possible duplicate, then sync
 linkintake entities wishlist|scholarships
 linkintake list                        # history (also the Raycast Intake History command)
 linkintake google-auth | google-setup  # one time
+linkintake google-audit                # read-only: signed-in identity + owner of every target
 linkintake list | show <id> | doctor | config [--set k=v] | cleanup <id>
 ```
 
@@ -149,6 +159,7 @@ Queue files: `~/.link-intake/bulk/<run_id>/candidates.json`.
 ```bash
 uv run python tests/test_router.py   # offline: canonical URLs, classes, dedupe, depth
 uv run python tests/test_sync.py     # offline: idempotency, partial, pending retry, remote merge, needs_decision
+uv run python tests/test_ownership.py # offline: identity + ownership guard on every write path, setup filter, audit
 uv run python tests/test_entities.py # offline: wishlist/scholarship merge matrix
 uv run python tests/test_history.py  # offline: history rows, re-save refused, failed record never exports
 uv run python tests/test_bulk.py     # offline: bulk dedupe/inference/review/run with fixtures

@@ -250,6 +250,14 @@ def cmd_google_setup(a) -> int:
     return 0
 
 
+def cmd_google_audit(a) -> int:
+    """Read-only: signed-in identity and the owner of every configured target. Writes nothing."""
+    from . import ownership
+    rep = ownership.audit()
+    print(json.dumps(rep, ensure_ascii=False) if a.json else ownership.text_report(rep))
+    return 0 if rep["all_personal"] else 1
+
+
 def cmd_list(a) -> int:
     rows = store.history(a.limit, include_pending=not a.saved_only)
     if a.json:
@@ -329,15 +337,24 @@ def cmd_doctor(a) -> int:
     from .google_api import Google, GoogleError
     state = sync.google_state(cfg)
     if state == "ready":
+        from . import ownership
         try:
-            g = Google()
-            me = g.request("GET", "https://www.googleapis.com/oauth2/v3/userinfo").get("email", "")
-            row("google", True, f"{me} (personal token, refresh ok)")
+            rep = ownership.audit(Google(), cfg, legacy=False, scan_foreign=False)
         except GoogleError as exc:
+            rep = None
             row("google", False, str(exc))
-        t = cfg["google"].get("targets", {})
-        missing = [k for k, v in t.items() if not v]
-        row("google targets", not missing, "all set" if not missing else "missing: " + ", ".join(missing) + " -> run `linkintake google-setup`")
+        if rep:
+            print(f"\n     Google authenticated identity: {rep['authenticated_account'] or '(unknown)'}")
+            print(f"     Required identity:             {rep['required_account'] or '(not configured)'}")
+            row("Identity OK", rep["identity_ok"], "yes" if rep["identity_ok"] else "NO — ALL GOOGLE WRITES BLOCKED; re-run `linkintake google-auth` with the personal account")
+            for r in rep["targets"] + [rep["wishlist_tab"]]:
+                if r["status"] == ownership.PERSONAL:
+                    row(r["label"], True, "personal-owned ✓")
+                elif r["status"] == ownership.FOREIGN:
+                    row(r["label"], False, f"!!! OWNED BY {', '.join(r['owners']).upper()} — WRITES BLOCKED ✗ (linkintake google-audit)")
+                else:
+                    row(r["label"], False, f"{r['status']} ✗ {r['note']}" + (" -> run `linkintake google-setup`" if r["status"] == ownership.MISSING else ""))
+            print()
     elif state == "off":
         print("ok   google: export off (config google.export_mode)")
     else:
@@ -427,6 +444,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--delay", type=float, default=2.0, help="run: seconds between items")
     s.set_defaults(fn=cmd_bulk)
     sub.add_parser("google-setup", help="one-time: pick/create the destination docs, folders and sheet; persists IDs").set_defaults(fn=cmd_google_setup)
+    sub.add_parser("google-audit", help="read-only: signed-in Google identity + owner of every configured target").set_defaults(fn=cmd_google_audit)
     s = sub.add_parser("list", help="history: saved records and unsaved reviews, newest first")
     s.add_argument("--limit", type=int, default=50); s.add_argument("--saved-only", action="store_true"); s.set_defaults(fn=cmd_list)
 

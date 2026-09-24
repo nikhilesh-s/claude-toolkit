@@ -1,10 +1,12 @@
 """One-time interactive destination setup. Discovers candidates in the PERSONAL Drive, asks when ambiguous,
-never silently picks, and persists exact file/folder IDs to config. Creates only what you confirm."""
+never silently picks, and persists exact file/folder IDs to config. Creates only what you confirm.
+Only files OWNED by google.required_account are offered or accepted; shared/editable foreign files are refused."""
 from __future__ import annotations
 
 from . import config
 from .destinations import DOC_TITLES, SCHOLAR_HEADER, WISHLIST_TAB_TITLE
-from .google_api import DOC_MIME, FOLDER_MIME, SHEET_MIME, Google, GoogleError, doc_tabs, doc_url, folder_url, sheet_url
+from .google_api import (DOC_MIME, FOLDER_MIME, SHEET_MIME, Google, GoogleError, doc_tabs, doc_url, folder_url, owner_emails,
+                         sheet_url)
 
 
 def _ask(prompt: str, default: str = "") -> str:
@@ -12,13 +14,32 @@ def _ask(prompt: str, default: str = "") -> str:
     return v or default
 
 
+def _owner(it: dict) -> str:
+    return ", ".join(owner_emails(it)) or "shared drive (no owner)"
+
+
+def pasted(g: Google, fid: str) -> dict | None:
+    """Resolve a pasted Drive id; None (with the reason printed) unless the required account owns it."""
+    try:
+        m = g.drive_meta(fid)
+    except GoogleError as exc:
+        print(f"  not found: {exc}")
+        return None
+    if g.required not in owner_emails(m):
+        print(f"  refused: '{m.get('name', fid)}' is owned by {_owner(m)}, not {g.required}. Pick a file your personal account owns.")
+        return None
+    print(f"  -> {m['name']} ({g.drive_path(fid)}) owner {_owner(m)}")
+    return m
+
+
 def _choose(label: str, items: list[dict], g: Google, allow_create: str = "", allow_skip: bool = True) -> dict | None:
-    """Present candidates with their Drive path; return the chosen item, {'create': True}, or None."""
+    """Present personal-owned candidates with owner and Drive path; return the chosen item, {'create': True}, or None."""
     print(f"\n== {label}")
+    items = [it for it in items if g.required in owner_emails(it)]  # never offer shared/foreign files, whatever the query returned
     if not items:
-        print("  (no matches)")
+        print("  (no matches owned by " + g.required + ")")
     for i, it in enumerate(items, 1):
-        print(f"  {i}. {it['name']}   — {g.drive_path(it['id'])}   (modified {it.get('modifiedTime', '')[:10]})")
+        print(f"  {i}. {it['name']}   — {g.drive_path(it['id'])}   owner {_owner(it)}   (modified {it.get('modifiedTime', '')[:10]})")
     opts = []
     if allow_create:
         opts.append(f"c = create '{allow_create}'")
@@ -32,14 +53,10 @@ def _choose(label: str, items: list[dict], g: Google, allow_create: str = "", al
         if ans.lower() == "c" and allow_create:
             return {"create": True}
         if ans.lower().startswith("id:"):
-            fid = ans[3:].strip()
-            try:
-                m = g.drive_meta(fid)
-                print(f"  -> {m['name']} ({g.drive_path(fid)})")
+            m = pasted(g, ans[3:].strip())
+            if m:
                 return m
-            except GoogleError as exc:
-                print(f"  not found: {exc}")
-                continue
+            continue
         if ans.isdigit() and 1 <= int(ans) <= len(items):
             return items[int(ans) - 1]
         print("  ?")
@@ -72,9 +89,21 @@ def _pick_or_create_doc(g: Google, label: str, title: str, parent: str) -> str:
 
 def run() -> dict:
     g = Google()
+    g.verify_identity()  # raises unless userinfo says required_account
     cfg = config.load()
     t = cfg["google"].setdefault("targets", {})
-    print(f"Signed in as {g.account}. Setting up destinations in this account's Drive.\n(Enter = keep current value; s = skip; nothing is created without your confirmation.)")
+    print(f"Signed in as {g.identity} (verified). Setting up destinations in this account's Drive.\n(Enter = keep current value; s = skip; nothing is created without your confirmation.)")
+    for k, v in list(t.items()):  # a configured id this account does not own is never kept
+        if v and k != "wishlist_tab_id":
+            try:
+                meta = g.drive_meta(v)
+            except GoogleError:
+                meta = {}
+            if g.required not in owner_emails(meta):
+                print(f"  {k} = {v} is not owned by {g.required} (owner: {_owner(meta) if meta else 'not accessible'}); it will be re-picked.")
+                t[k] = ""
+                if k == "wishlist_doc":
+                    t["wishlist_tab_id"] = ""
 
     # 1. Master Intake
     if not t.get("master_doc") or _ask("Master Intake already set; re-pick? (y/N)", "N").lower() == "y":
