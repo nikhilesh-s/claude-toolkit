@@ -45,6 +45,11 @@ DEFAULTS: dict = {
         "claude_config_dir": "~/.claude-nebula",  # the Claude Max login on this Mac
     },
     "cleanup": {"enabled": True},
+    "reminders": {
+        "lists": [],  # empty = every Reminders list
+        "include_completed": False,
+        "max_items_per_run": 25,  # Claude extractions per sweep; the rest defer to the next one
+    },
 }
 
 

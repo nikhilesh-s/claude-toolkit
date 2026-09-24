@@ -154,6 +154,27 @@ sequentially with a delay, saving progress after every item (resumable), and nev
 Records carry `batch` provenance (run id, source origin, list/note) and History shows it.
 Queue files: `~/.link-intake/bulk/<run_id>/candidates.json`.
 
+## Weekly Reminder intake
+
+Once a week a user LaunchAgent (`com.nik.linkintake.reminders`, default Sunday 19:00) runs
+`linkintake reminders run --execute --scheduled`: read-only discovery of URL-bearing Apple Reminders (never Notes), the
+same inference as `bulk`, then the same pipeline as Intake Link. Ambiguous links go to REVIEW, work/tooling links are
+skipped (never auto-Inbox). If Claude is out of quota, logged out, times out or returns nothing, the item is DEFERRED:
+no record, no entity, no Google row, retried next week or with `retry-deferred`. A link already seen with the same
+wording in the same list is not reconsidered; changed wording is. One macOS notification per sweep.
+
+```bash
+linkintake reminders scan | run [--execute] | review | retry-deferred | report
+linkintake reminders clear                    # preview: which fully-handled reminders would be marked complete
+linkintake reminders clear --confirm <token>  # mark exactly those complete (never delete); refused from launchd
+linkintake reminders clear --keep
+linkintake reminders schedule install [--weekday sun --time 19:00] [--dry-run] | status | remove
+```
+
+State: `~/.link-intake/reminder-sweeps/` (`ledger.json`, `state.json`, `<run_id>/report.json` + `report.md`,
+`clear-log.jsonl`, `launchd.log`). Config: `reminders.lists`, `reminders.include_completed`,
+`reminders.max_items_per_run` (default 25). Raycast: **Reminder Intake**.
+
 ## Tests
 
 ```bash
@@ -163,6 +184,7 @@ uv run python tests/test_ownership.py # offline: identity + ownership guard on e
 uv run python tests/test_entities.py # offline: wishlist/scholarship merge matrix
 uv run python tests/test_history.py  # offline: history rows, re-save refused, failed record never exports
 uv run python tests/test_bulk.py     # offline: bulk dedupe/inference/review/run with fixtures
+uv run python tests/test_reminders.py # offline: weekly sweep, quota deferral, reconciliation, clear, LaunchAgent
 tests/smoke_real.sh                  # the one E2E test: Reel -> personal_ig -> extract -> save (local, export pending)
 tests/regression_reels.sh            # all 10 wishlist Reels as Wishlist intents (cache reused, nothing deleted)
 ```

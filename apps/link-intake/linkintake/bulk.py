@@ -5,6 +5,7 @@ deleted or moved. Candidates live in ~/.link-intake/bulk/<run_id>/candidates.jso
 sequentially with a delay, resumes if interrupted, and never lets one failure stop the batch."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -65,8 +66,9 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _osa(script: str, timeout: int = 600) -> str:
-    proc = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=timeout, check=False)
+def _osa(script: str, timeout: int = 600, args: tuple[str, ...] = ()) -> str:
+    """Run AppleScript; `args` reach an `on run argv` handler as data, never as script text."""
+    proc = subprocess.run(["osascript", "-e", script, *args], capture_output=True, text=True, timeout=timeout, check=False)
     if proc.returncode != 0:
         raise RuntimeError(f"osascript failed: {proc.stderr.strip()[:300]}")
     return proc.stdout
@@ -83,10 +85,19 @@ repeat with L in lists
   set bs to body of every reminder of L
   set cs to completed of every reminder of L
   set ds to creation date of every reminder of L
+  set ids to id of every reminder of L
+  set ms to modification date of every reminder of L
+  set dds to due date of every reminder of L
   repeat with i from 1 to (count of ns)
     set b to item i of bs
     if b is missing value then set b to ""
-    set out to out & ln & "%SEP%" & (item i of ns) & "%SEP%" & b & "%SEP%" & (item i of cs) & "%SEP%" & ((item i of ds) as string) & "%RS%"
+    set dd to item i of dds
+    if dd is missing value then
+      set dd to ""
+    else
+      set dd to dd as string
+    end if
+    set out to out & ln & "%SEP%" & (item i of ns) & "%SEP%" & b & "%SEP%" & (item i of cs) & "%SEP%" & ((item i of ds) as string) & "%SEP%" & (item i of ids) & "%SEP%" & ((item i of ms) as string) & "%SEP%" & dd & "%RS%"
   end repeat
 end repeat
 return out
@@ -119,13 +130,20 @@ def discover_reminders(include_completed: bool = False, lists: list[str] | None 
         if len(parts) < 5:
             continue
         ln, name, body, completed, created = parts[:5]
+        rid, modified, due = (parts[5:8] + ["", "", ""])[:3]
         if lists and ln not in lists:
             continue
         if completed.strip() == "true" and not include_completed:
             continue
         items.append({"origin": "reminders", "container": ln, "title": name.strip(), "text": body.strip(),
-                      "completed": completed.strip() == "true", "created": created.strip()})
+                      "completed": completed.strip() == "true", "created": created.strip(), "id": rid.strip(),
+                      "modified": modified.strip(), "due": due.strip(), "content_hash": content_hash(name, body)})
     return items
+
+
+def content_hash(title: str, body: str) -> str:
+    """What a reminder said when we read it; clearing refuses a reminder whose text changed since."""
+    return hashlib.sha1(f"{title.strip()}\x00{body.strip()}".encode()).hexdigest()[:16]
 
 
 def discover_notes(limit: int = 400) -> list[dict]:
@@ -262,7 +280,8 @@ def build_candidates(items: list[dict]) -> list[dict]:
             if dest == "skip":
                 err = err or reason
             key = f"{canon}|{dest}|{normalize_instruction(instr)}" if not err else f"{canon}|invalid"
-            prov = {"origin": it["origin"], "container": it.get("container", ""), "title": it.get("title", ""), "context": ctx}
+            prov = {"origin": it["origin"], "container": it.get("container", ""), "title": it.get("title", ""), "context": ctx,
+                    "source_id": it.get("id", ""), "text": it.get("text", "")[:600], "content_hash": it.get("content_hash", "")}
             if key in cands:  # same URL, same meaning: one candidate, several provenances
                 cands[key]["provenance"].append(prov)
                 continue
@@ -431,3 +450,43 @@ def run_batch(run: dict, *, dry_run: bool = True, limit: int = 0, delay: float =
         print(f"[bulk] {c['id']} {c['status']} {c.get('record_id', '')} {c.get('resolution', '')} {c.get('export_status', '')} {c.get('error', '')}", flush=True)
         time.sleep(delay)
     return report
+
+
+# ---------- one candidate, quota-safe (used by the weekly Reminders sweep)
+# Claude is unusable for the rest of this run: stop spending adapter work on items that would defer anyway.
+CLAUDE_DOWN = re.compile(r"usage limit|limit reached|session limit|rate.?limit|overloaded|not logged in|/login|invalid api key|"
+                         r"authenticat|credit balance|quota|no llm backend", re.I)
+# Worth retrying later rather than calling it failed: network, media-unlocker down, throttling.
+TRANSIENT = re.compile(r"unreachable|connection refused|connecterror|timed? ?out|temporar|\b(429|502|503|504)\b|media.?unlocker", re.I)
+
+
+def process_candidate(c: dict, batch: dict) -> dict:
+    """Run one candidate through the SAME pipeline as Raycast (ingest -> review -> save_record), but save only a
+    usable extraction. A Claude failure (quota, logged out, timeout, empty answer) or a transient adapter failure
+    saves NOTHING: no record, no entity, no Google row. Returns {"outcome": ingested|already_ingested|review|
+    deferred|failed, "record_id", "resolution", "export_status", "reason", "claude_down"}."""
+    from . import cleanup, pipeline
+    url, dest, instr = c["original_url"], c["inferred_destination"], c["inferred_instruction"]
+    exact = store.find_exact(dedupe_key(c["canonical_url"], dest, instr))
+    if exact:
+        return {"outcome": "already_ingested", "record_id": exact["id"], "reason": f"already ingested as {exact['id']}"}
+    rec = pipeline.ingest(url, dest, instr, save=False, batch=batch)
+    llm_err = next((e for e in reversed(rec["errors"]) if e.startswith("llm:")), "")
+    empty = rec["status"] != "failed" and rec["processing"].get("llm_backend") != "skipped" and not rec["extraction"].get("focused_result")
+    if rec["status"] == "failed" or llm_err or empty:
+        cleanup.cleanup_record(rec)
+        (store.PENDING / f"{rec['id']}.json").unlink(missing_ok=True)  # the candidate is the durable copy, not this draft
+        reason = llm_err or ("; ".join(rec["errors"]) if rec["status"] == "failed" else "Claude returned an empty extraction")
+        deferred = bool(llm_err or empty or TRANSIENT.search(reason))
+        return {"outcome": "deferred" if deferred else "failed", "reason": reason[:400], "claude_down": bool(CLAUDE_DOWN.search(reason))}
+    try:
+        rec = pipeline.save_record(rec["id"])
+    except pipeline.DuplicateError as exc:
+        (store.PENDING / f"{rec['id']}.json").unlink(missing_ok=True)
+        return {"outcome": "already_ingested", "record_id": rec.get("exact_duplicate", ""), "reason": str(exc)}
+    res, ex = rec.get("destination_resolution") or {}, rec.get("export") or {}
+    if rec["status"] == "failed":  # save_record's own guard; never an entity or a Google row
+        return {"outcome": "failed", "record_id": rec["id"], "reason": "; ".join(rec["errors"])[:400]}
+    return {"outcome": "review" if res.get("action") == "possible_duplicate" else "ingested", "record_id": rec["id"],
+            "resolution": res.get("action", ""), "export_status": ex.get("status", ""),
+            "reason": "possible duplicate: run `linkintake resolve " + rec["id"] + " --merge|--new`" if res.get("action") == "possible_duplicate" else ""}
