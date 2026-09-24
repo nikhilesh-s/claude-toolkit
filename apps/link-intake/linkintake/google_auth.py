@@ -12,7 +12,7 @@ import urllib.request
 import webbrowser
 
 from . import config
-from .google_api import CLIENT_PATH, GOOGLE_DIR, TOKEN_PATH
+from .google_api import CLIENT_PATH, GOOGLE_DIR, TOKEN_PATH, required_account
 
 SCOPES = ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive",
           "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/userinfo.email"]
@@ -37,6 +37,16 @@ def _client() -> dict:
     CLIENT_PATH.write_text(json.dumps({"client_id": cid, "client_secret": sec, "type": "desktop"}, indent=2))
     CLIENT_PATH.chmod(0o600)
     return {"client_id": cid, "client_secret": sec}
+
+
+def check_account(email: str, required: str) -> None:
+    """Only the configured personal account may be saved; any .edu is refused even if misconfigured as required."""
+    if not email:
+        raise SystemExit("Google did not return an email address; nothing saved.")
+    if email.endswith(BLOCKED_DOMAINS):
+        raise SystemExit(f"Refusing {email}: that is a college account. Re-run and pick your personal Google account. Nothing saved.")
+    if email != required:
+        raise SystemExit(f"Refusing {email}: link-intake only writes as {required or '(google.required_account not set)'}. Nothing saved.")
 
 
 def run() -> str:
@@ -74,10 +84,7 @@ def run() -> str:
     req = urllib.request.Request("https://www.googleapis.com/oauth2/v3/userinfo", headers={"Authorization": "Bearer " + tok["access_token"]})
     with urllib.request.urlopen(req, timeout=30) as r:
         email = json.loads(r.read()).get("email", "").lower()
-    if not email:
-        raise SystemExit("Google did not return an email address; nothing saved.")
-    if email.endswith(BLOCKED_DOMAINS):
-        raise SystemExit(f"Refusing {email}: that is a college account. Re-run and pick your personal Google account. Nothing saved.")
+    check_account(email, required_account())
     if not tok.get("refresh_token"):
         raise SystemExit("Google returned no refresh token. Remove link-intake from https://myaccount.google.com/permissions and re-run.")
     TOKEN_PATH.write_text(json.dumps({"email": email, "refresh_token": tok["refresh_token"], "token": tok["access_token"],

@@ -2,8 +2,8 @@ import { getPreferenceValues } from "@raycast/api";
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 
-export type SyncPart = { status: "pending" | "synced" | "failed"; destination?: string; remote_file_id: string; remote_ref: string; last_attempt: string; last_error: string; synced_at: string };
-export type SyncState = { status: "synced" | "partial" | "export_pending" | "not_configured" | "off" | "needs_decision" | "skipped"; master_sync?: SyncPart; destination_sync?: SyncPart; last_error?: string; last_attempt?: string; synced_at?: string };
+export type SyncPart = { status: "pending" | "synced" | "failed" | "blocked"; destination?: string; remote_file_id: string; remote_ref: string; last_attempt: string; last_error: string; synced_at: string };
+export type SyncState = { status: "synced" | "partial" | "export_pending" | "not_configured" | "off" | "needs_decision" | "skipped" | "blocked"; master_sync?: SyncPart; destination_sync?: SyncPart; last_error?: string; last_attempt?: string; synced_at?: string };
 
 export type Resolution = { action?: string; entity_key?: string; matched_entity?: string; match_confidence?: number; match_reasons?: string[]; contributing_record_ids?: string[]; candidate_label?: string; variant_of?: string; enriched_fields?: string[] };
 
@@ -20,6 +20,7 @@ export function syncLine(ex?: SyncState, res?: Resolution, dest?: string): strin
   const st = ex?.status ?? "export_pending";
   const tail = resolutionLine(res, dest);
   const t = tail ? ` · ${tail}` : "";
+  if (st === "blocked") return `Saved locally ✓ · Google BLOCKED (not personal-owned)${t}`;
   if (st === "needs_decision") return `Saved locally ✓ · ${tail || "possible duplicate — review needed"}`;
   if (st === "synced") return `Saved locally ✓ · Google synced ✓${t}`;
   if (st === "off") return `Saved locally ✓ · Google export off${t}`;

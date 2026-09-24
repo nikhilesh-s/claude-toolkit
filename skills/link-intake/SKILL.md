@@ -18,6 +18,7 @@ linkintake save <record-id> [--force]                                           
 linkintake reprocess <record-id> [--instruction "..."] [--dest ...]
 linkintake batch tests/urls.txt [--save]      # lines: URL | destination | instruction
 linkintake sync [id] | sync-status [id] | google-auth | google-setup
+linkintake google-audit [--json]              # read-only: signed-in identity + owner of every configured target
 linkintake list | show <id> | doctor | config
 ```
 
@@ -93,6 +94,9 @@ existing intakes are marked `existing`; a same-URL, same-destination, new-instru
   `CLAUDE_CONFIG_DIR=~/.claude-nebula claude login` and stop; do not fabricate an extraction. Records still
   save locally with `status: needs_review`.
 - The Wishlist doc is not restructured: only its Intake Staging tab receives intake rows.
+- Google writes only ever go to files OWNED by `google.required_account` (the personal account). An export status of
+  `blocked` means the signed-in identity or a target's owner is wrong: run `linkintake google-audit`, show Nik the result,
+  and never point a target at a shared or college-owned file. Never delete, trash, move or rename Drive files.
 - Prefer reprocessing with a sharper instruction over hand-editing exported docs.
 
 ## Raycast

@@ -11,6 +11,7 @@ function when(iso: string): string {
 
 function statusTag(r: HistoryRow): { text: string; color: Color } {
   if (!r.saved) return { text: "Not saved", color: Color.SecondaryText };
+  if (r.export_status === "blocked") return { text: "Google blocked: ownership", color: Color.Red };
   if (r.export_status === "needs_decision") return { text: "Possible duplicate", color: Color.Yellow };
   if (r.export_status === "synced") return { text: "Saved ✓ Google ✓", color: Color.Green };
   if (r.export_status === "partial") return { text: r.master_status === "synced" ? "Master ✓ · dest pending" : "Master pending · dest ✓", color: Color.Orange };
@@ -93,7 +94,7 @@ export default function History() {
                 <Action.OpenInBrowser title="Open Original URL" url={r.url} shortcut={{ modifiers: ["cmd"], key: "o" }} />
                 <Action.CopyToClipboard title="Copy URL" content={r.url} shortcut={{ modifiers: ["cmd"], key: "c" }} />
                 {r.google_ref ? <Action.OpenInBrowser title="Open in Google" url={r.google_ref} shortcut={{ modifiers: ["cmd"], key: "g" }} /> : null}
-                {r.saved && ["export_pending", "partial", "not_configured"].includes(r.export_status) ? <Action title="Retry Google Sync" icon={Icon.Cloud} onAction={() => retry(r)} /> : null}
+                {r.saved && ["export_pending", "partial", "not_configured", "blocked"].includes(r.export_status) ? <Action title="Retry Google Sync" icon={Icon.Cloud} onAction={() => retry(r)} /> : null}
                 {r.last_error ? <Action title="Show Sync Error" icon={Icon.Warning} onAction={() => showToast({ style: Toast.Style.Failure, title: r.export_status, message: r.last_error.slice(0, 250) })} /> : null}
                 <Action title="Refresh" icon={Icon.ArrowClockwise} shortcut={{ modifiers: ["cmd"], key: "r" }} onAction={load} />
               </ActionPanel>
