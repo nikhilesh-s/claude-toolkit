@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 os.environ["LINKINTAKE_STATE_DIR"] = tempfile.mkdtemp(prefix="linkintake-own-")
 
@@ -38,8 +39,12 @@ class FakeHTTP:
         url, method = req.full_url, req.get_method()
         base, _, qs = url.partition("?")
         if method != "GET":
-            self.writes.append((method, base, json.loads(req.data) if req.data else None))
-            if base == google_api.DRIVE_FILES:
+            try:
+                body = json.loads(req.data) if req.data else None
+            except ValueError:  # multipart upload
+                body = req.data
+            self.writes.append((method, base, body))
+            if base in (google_api.DRIVE_FILES, google_api.DRIVE_UPLOAD):
                 return _resp({"id": "NEW1"})
             return _resp({"replies": []})
         if base == google_api.USERINFO:
@@ -84,7 +89,8 @@ def world(identity=ME):
     f.add("SUPP", "Supplement Inspiration Bank", DOC_MIME, ME)
     f.add("DESIGN", "Design Inspiration Bank", DOC_MIME, ME)
     f.add("IG", "Personal Instagram Inspiration", DOC_MIME, ME)
-    for fid in ("F1", "F2", "F3"):
+    f.add("UGC", "UGC Intake", SHEET_MIME, ME)
+    for fid in ("F1", "F2", "F3", "F4"):
         f.add(fid, fid, FOLDER_MIME, ME)
     # the bug class: a college-owned file SHARED WITH and EDITABLE BY the personal account
     f.add("SCHOOLDOC", "Intake Master", DOC_MIME, SCHOOL)
@@ -101,7 +107,8 @@ def setup_state(targets=None):
     cfg = config.load()
     cfg["google"]["targets"] = targets or {"master_doc": "MASTER", "wishlist_doc": "WISH", "wishlist_tab_id": "t.staging", "college_folder": "F1",
                                            "supplement_doc": "SUPP", "media_folder": "F2", "design_doc": "DESIGN", "personal_ig_doc": "IG",
-                                           "scholarships_folder": "F3", "scholarship_sheet": "SHEET"}
+                                           "scholarships_folder": "F3", "scholarship_sheet": "SHEET",
+                                           "ugc_sheet": "UGC", "ugc_media_folder": "F4"}
     config.save(cfg)
 
 
@@ -167,7 +174,17 @@ def main():
     expect_blocked(lambda: g.request("POST", "https://www.googleapis.com/drive/v3/files/SCHOOLDOC/copy", body={}), f, "unrecognized")
     expect_blocked(lambda: g.request("DELETE", "https://www.googleapis.com/drive/v3/files/SCHOOLDOC"), f, "unrecognized")
     expect_blocked(lambda: g.request("POST", "https://docs.googleapis.com/v1/documents/SCHOOLDOC:batchUpdate", body={"requests": []}), f, SCHOOL)
+    # ugc thumbnail: the multipart upload (request_raw) and its link-sharing call go through the same guard
+    thumb = Path(tempfile.mkdtemp()) / "t.jpg"
+    thumb.write_bytes(b"\xff\xd8fake")
+    expect_blocked(lambda: g.drive_upload_file(thumb, "t.jpg", "SCHOOLFOLDER"), f, SCHOOL)
+    expect_blocked(lambda: g.request("POST", "https://www.googleapis.com/drive/v3/files/SCHOOLDOC/permissions",
+                                     body={"role": "reader", "type": "anyone"}), f, SCHOOL)
     assert f.writes == []
+    f.add("NEW1", "t.jpg", "image/jpeg", ME)  # what the fake upload returns
+    assert g.drive_upload_file(thumb, "t.jpg", "F2")[0] == "NEW1"
+    assert [w[1] for w in f.writes] == [google_api.DRIVE_UPLOAD, google_api.DRIVE_FILES + "/NEW1/permissions"], f.writes
+    f.writes.clear()
     # root-level create lands in the verified identity's own Drive -> allowed
     g.drive_create("Intake Master", DOC_MIME)
     assert len(f.writes) == 1

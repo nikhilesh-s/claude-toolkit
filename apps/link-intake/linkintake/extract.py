@@ -78,6 +78,11 @@ technique notes (shot types, pacing, cuts, timing, light, movement). structured_
 format, key_shots, composition, lighting_color, transitions_sequence, pacing_editing, hooks_text,
 techniques_to_recreate, unknowns. tags: loose (e.g. filming, editing, hooks, captions, lifestyle).""",
     "inbox": "Destination: Inbox. Minimal: summarize and preserve context.",
+    "ugc": """Fill structured_data only when the evidence supports it: feature (which VoiceOS capability the Reel
+demonstrates: dictation, agent, a named integration, onboarding, or unclear), hook_line (the opening spoken or
+on-screen line, if readable from caption or frames), format (talking head, screen capture, mixed), sentiment
+(positive, mixed, negative, toward VoiceOS). takeaways are for the content team: what this Reel does well, one
+sentence each. No transcript exists; say so in uncertainty rather than guessing what was said.""",
 }
 
 

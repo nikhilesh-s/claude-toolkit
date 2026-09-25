@@ -14,6 +14,7 @@ DESTINATIONS = {
     "scholarships": "Scholarships",
     "personal_ig": "Personal Instagram Inspiration",
     "inbox": "Inbox / Unsorted",
+    "ugc": "UGC",
 }
 STRUCTURED_DESTINATIONS = {"wishlist", "scholarships"}
 STATUSES = ("ready", "needs_review", "failed")
@@ -28,7 +29,8 @@ def normalize_destination(value: str) -> str:
             return key
     aliases = {"ig": "personal_ig", "instagram": "personal_ig", "personal instagram": "personal_ig",
                "supplements": "supplement_ideas", "supplement": "supplement_ideas",
-               "design": "design_inspo", "scholarship": "scholarships", "unsorted": "inbox"}
+               "design": "design_inspo", "scholarship": "scholarships", "unsorted": "inbox",
+               "reel": "ugc", "creator": "ugc"}
     if v in aliases:
         return aliases[v]
     raise ValueError(f"Unknown destination {value!r}. Options: {', '.join(DESTINATIONS)}")
@@ -60,6 +62,8 @@ def new_record(*, original_url: str, canonical_url: str, source_class: str, plat
             "title": "",
             "creator": "",
             "published_at": "",
+            "received_via": "",
+            "received_from": "",
         },
         "intent": {"destination": destination, "user_instruction": instruction},  # verbatim
         "context": {
@@ -77,6 +81,8 @@ def new_record(*, original_url: str, canonical_url: str, source_class: str, plat
         "status": "needs_review",
         "duplicate_of": [],
         "dedupe_key": dedupe_key(canonical_url, destination, instruction),
+        "metrics": {"like_count": None, "view_count": None, "duration_s": None, "captured_at": ""},
+        "senders": [],
     }
 
 

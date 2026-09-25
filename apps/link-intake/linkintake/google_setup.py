@@ -4,7 +4,7 @@ Only files OWNED by google.required_account are offered or accepted; shared/edit
 from __future__ import annotations
 
 from . import config
-from .destinations import DOC_TITLES, SCHOLAR_HEADER, WISHLIST_TAB_TITLE
+from .destinations import DOC_TITLES, SCHOLAR_HEADER, UGC_HEADER, WISHLIST_TAB_TITLE
 from .google_api import (DOC_MIME, FOLDER_MIME, SHEET_MIME, Google, GoogleError, doc_tabs, doc_url, folder_url, owner_emails,
                          sheet_url)
 
@@ -166,6 +166,23 @@ def run() -> dict:
                 print("  Google Sheets API is not enabled on your Cloud project. Scholarships stay pending until you enable it, then re-run google-setup.")
             else:
                 print(f"  sheet step failed: {exc}")
+
+    # 7. UGC Intake sheet + its Drive media folder
+    if not t.get("ugc_sheet"):
+        try:
+            t["ugc_sheet"] = g.sheet_create(DOC_TITLES["ugc_sheet"], "", UGC_HEADER)
+            print(f"  created {sheet_url(t['ugc_sheet'])}")
+        except GoogleError as exc:
+            if exc.sheets_api_disabled:
+                print("  Google Sheets API is not enabled on your Cloud project. UGC Intake stays pending until you enable it, then re-run google-setup.")
+            else:
+                print(f"  ugc sheet step failed: {exc}")
+    if not t.get("ugc_media_folder"):
+        try:
+            t["ugc_media_folder"] = g.drive_create("UGC Intake media", FOLDER_MIME, "")
+            print(f"  created {folder_url(t['ugc_media_folder'])}")
+        except GoogleError as exc:
+            print(f"  ugc media folder step failed: {exc}")
 
     config.save(cfg)
     print("\nSaved destination IDs to", config.CONFIG_PATH)

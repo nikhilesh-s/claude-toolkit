@@ -15,7 +15,10 @@ from . import config
 from .google_api import CLIENT_PATH, GOOGLE_DIR, TOKEN_PATH, required_account
 
 SCOPES = ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive",
-          "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/userinfo.email"]
+          "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/userinfo.email",
+          # Gmail read-only, for bulk.discover_gmail (the watched inbox, dormant until Kai's Q3). A token
+          # authorized before this scope existed does not have it: re-run `linkintake google-auth` to re-consent.
+          "https://www.googleapis.com/auth/gmail.readonly"]
 PORT = int(os.environ.get("LINKINTAKE_OAUTH_PORT", "8792"))
 REDIRECT = f"http://localhost:{PORT}/oauth2callback"
 BLOCKED_DOMAINS = (".edu",)

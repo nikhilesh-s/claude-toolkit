@@ -65,10 +65,14 @@ def _summary(rec: dict) -> str:
 
 def cmd_ingest(a) -> int:
     try:
-        rec = pipeline.ingest(a.url, a.dest, a.instruction, save=a.save, force=a.force, refresh=a.refresh)
+        rec = pipeline.ingest(a.url, a.dest, a.instruction, save=a.save, force=a.force, refresh=a.refresh,
+                               received_via=a.received_via, received_from=a.received_from)
     except pipeline.DuplicateError as exc:
         _out({"error": str(exc), "duplicate": True}, a.json)
         return 3
+    if rec.get("duplicate"):
+        _out({"result": "duplicate", "id": rec["id"], "senders": rec["senders"]}, a.json)
+        return 0
     _out(rec, a.json)
     return 0 if rec["status"] != "failed" else 1
 
@@ -194,8 +198,19 @@ def cmd_bulk(a) -> int:
                 items += bulk.discover_manifest()
             elif src.startswith("file:"):
                 items += bulk.discover_file(src[5:])
+            elif src == "slack":
+                inbox = config.load()["inbox"]
+                token = os.environ.get(inbox["slack_token_env"], "")
+                if not inbox["slack_channel"] or not token:
+                    raise SystemExit(f"slack source needs config inbox.slack_channel and env {inbox['slack_token_env']}")
+                items += bulk.discover_slack(inbox["slack_channel"], token)
+            elif src == "gmail":
+                inbox = config.load()["inbox"]
+                if not inbox["gmail_label"]:
+                    raise SystemExit("gmail source needs config inbox.gmail_label (run `linkintake config --set inbox.gmail_label=<label>`)")
+                items += bulk.discover_gmail(inbox["gmail_label"])
             else:
-                raise SystemExit(f"unknown source {src} (reminders|notes|manifest|file:<path>)")
+                raise SystemExit(f"unknown source {src} (reminders|notes|manifest|slack|gmail|file:<path>)")
         cands = bulk.build_candidates(items)
         if a.limit:
             cands = cands[: a.limit]
@@ -221,7 +236,10 @@ def cmd_bulk(a) -> int:
             for c in run["candidates"]:
                 if c["status"] in ("review", "ready") and (not a.origin or c["source_origin"] == a.origin):
                     changed.append(bulk.review_update(run, c["id"], approve=True))
-        for cid, dest in a.dest or []:
+        for grp in a.dest or []:
+            if len(grp) != 2:
+                raise SystemExit("review --dest needs two values: --dest ID DESTINATION")
+            cid, dest = grp
             changed.append(bulk.review_update(run, cid, dest=dest))
         for cid, ins in a.instruction or []:
             changed.append(bulk.review_update(run, cid, instruction=ins))
@@ -238,7 +256,12 @@ def cmd_bulk(a) -> int:
                 print(_cand_line(c))
         return 0
     if a.action == "run":
-        report = bulk.run_batch(run, dry_run=not a.execute, limit=a.limit, delay=a.delay)
+        dest_override = ""
+        for grp in a.dest or []:
+            if len(grp) != 1:
+                raise SystemExit("run --dest needs exactly one value: --dest <destination>")
+            dest_override = grp[0]
+        report = bulk.run_batch(run, dry_run=not a.execute, limit=a.limit, delay=a.delay, dest_override=dest_override)
         _out(report, a.json)
         return 0 if report["failed"] == 0 else 1
     return 2
@@ -412,9 +435,36 @@ def cmd_batch(a) -> int:
     return rc
 
 
+def _recanonicalize_records() -> int:
+    """Backfill for router.canonicalize changes (e.g. instagr.am -> www.instagram.com, /reels/ ->
+    /reel/): records saved before a canonicalization change keep a stale source.canonical_url and
+    dedupe_key, so find_exact/find_by_url miss them on re-ingest. Idempotent."""
+    from .records import dedupe_key
+    from .router import canonicalize
+    n = 0
+    skipped = 0
+    for f in store.RECORDS.glob("*.json"):
+        try:
+            rec = json.loads(f.read_text())
+            new_canonical = canonicalize(rec["source"]["original_url"])
+            if new_canonical == rec["source"]["canonical_url"]:
+                continue
+            rec["source"]["canonical_url"] = new_canonical
+            rec["dedupe_key"] = dedupe_key(new_canonical, rec["intent"]["destination"], rec["intent"]["user_instruction"])
+            store.save(rec)
+            n += 1
+        except (KeyError, TypeError, json.JSONDecodeError, OSError) as exc:
+            skipped += 1
+            print(f"     skip {f.name}: {type(exc).__name__}: {exc}")
+    if skipped:
+        print(f"     skipped {skipped} malformed/legacy record file(s)")
+    return n
+
+
 def cmd_doctor(a) -> int:
     cfg = config.load()
     ok = True
+    print(f"     recanonicalized {_recanonicalize_records()} records")
 
     def row(label, good, detail=""):
         nonlocal ok
@@ -520,6 +570,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--save", action="store_true")
     s.add_argument("--force", action="store_true", help="save even if an exact duplicate exists")
     s.add_argument("--refresh", action="store_true", help="re-download media instead of using the cache")
+    s.add_argument("--received-via", default="", help="voice|slack|gmail|file")
+    s.add_argument("--received-from", default="", help="sender name, if known")
     s.set_defaults(fn=cmd_ingest)
 
     s = sub.add_parser("save", help="save a pending record: local store + Google export + cleanup")
@@ -549,15 +601,17 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_entities)
     s = sub.add_parser("sync-skip", help="exclude records from Google sync (test junk); `sync <id>` re-includes")
     s.add_argument("ids", nargs="*"); s.add_argument("--all-pending", action="store_true"); s.set_defaults(fn=cmd_sync_skip)
-    s = sub.add_parser("bulk", help="bulk ingest from Reminders/Notes/manifest/file: scan -> review -> run (dry-run by default)")
+    s = sub.add_parser("bulk", help="bulk ingest from Reminders/Notes/manifest/Slack/Gmail/file: scan -> review -> run (dry-run by default)")
     s.add_argument("action", choices=["scan", "review", "run", "status"])
-    s.add_argument("--sources", default="reminders,notes,manifest", help="comma list: reminders,notes,manifest,file:<path>")
+    s.add_argument("--sources", default="reminders,notes,manifest", help="comma list: reminders,notes,manifest,slack,gmail,file:<path>")
     s.add_argument("--lists", default="", help="scan: only these Reminders lists (comma separated)")
     s.add_argument("--include-completed", action="store_true"); s.add_argument("--notes-limit", type=int, default=400)
     s.add_argument("--limit", type=int, default=0, help="scan: keep first N candidates; run: process at most N")
     s.add_argument("--run", default="", help="run id (default: latest)")
     s.add_argument("--approve", nargs="*", metavar="ID"); s.add_argument("--approve-all", action="store_true"); s.add_argument("--origin", default="")
-    s.add_argument("--dest", nargs=2, action="append", metavar=("ID", "DESTINATION")); s.add_argument("--instruction", nargs=2, action="append", metavar=("ID", "TEXT"))
+    s.add_argument("--dest", nargs="+", action="append", metavar="VALUE",
+                    help="review: --dest ID DESTINATION (repeatable); run: --dest DESTINATION forces it for every processed candidate (e.g. ugc for a Slack/Gmail sweep)")
+    s.add_argument("--instruction", nargs=2, action="append", metavar=("ID", "TEXT"))
     s.add_argument("--skip", nargs="*", metavar="ID")
     s.add_argument("--execute", action="store_true", help="run: actually process (default is dry-run preview)")
     s.add_argument("--delay", type=float, default=2.0, help="run: seconds between items")

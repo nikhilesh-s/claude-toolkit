@@ -10,11 +10,12 @@ _TRACKING = re.compile(r"^(utm_|igsh|igshid|igsi|fbclid|gclid|mc_cid|mc_eid|ref_
 _FILE_EXT = re.compile(r"\.(pdf|jpe?g|png|gif|webp|heic|mp4|mov|m4v|webm|mp3|m4a|wav|zip|csv|docx?|pptx?|xlsx?)$", re.I)
 
 _SOCIAL = {
-    "instagram.com": "instagram", "tiktok.com": "tiktok", "x.com": "x", "twitter.com": "x",
+    "instagram.com": "instagram", "instagr.am": "instagram", "tiktok.com": "tiktok", "x.com": "x", "twitter.com": "x",
     "reddit.com": "reddit", "redd.it": "reddit", "pinterest.com": "pinterest", "pin.it": "pinterest",
     "threads.net": "threads", "threads.com": "threads", "facebook.com": "facebook", "fb.watch": "facebook",
 }
 _WWW = {"instagram.com", "tiktok.com", "reddit.com", "pinterest.com", "facebook.com", "threads.net", "threads.com"}
+_SOCIAL_ALIAS = {"instagr.am": "instagram.com"}  # short host -> canonical host
 _VIDEO = {"youtube.com": "youtube", "youtu.be": "youtube", "vimeo.com": "vimeo", "loom.com": "loom"}
 _GOOGLE = {"docs.google.com": "google_docs", "drive.google.com": "google_drive"}
 
@@ -53,8 +54,10 @@ def canonicalize(url: str) -> str:
         host = "www.youtube.com"
     elif _match(bare, _SOCIAL):
         query = []  # social share params are tracking only
+        bare = _SOCIAL_ALIAS.get(bare, bare)  # short hosts (instagr.am) -> canonical host
         host = ("www." + bare) if bare in _WWW else bare
         if bare in {"instagram.com", "tiktok.com"}:
+            path = re.sub(r"^/reels/", "/reel/", path)
             path = path.rstrip("/") + "/"
     if path != "/" and path.endswith("/") and bare not in {"instagram.com", "tiktok.com"}:
         path = path.rstrip("/")
