@@ -12,6 +12,9 @@ WISHLIST_HEADER = ["Date Added", "Item", "Brand", "Model", "Variant / Color / Si
                    "Notes", "Source", "Record ID"]
 SCHOLAR_HEADER = ["Scholarship", "Organization", "Amount", "Deadline", "Eligibility", "Required Materials",
                   "Application Link", "Status", "Priority", "Notes", "Source", "Date Added", "Record ID"]
+UGC_HEADER = ["Date received", "Received via", "Sent by", "Creator", "URL", "Caption", "Thumbnail", "Duration",
+              "What it shows", "VoiceOS feature shown", "Hook line", "Confidence", "Status", "Owner", "Notes",
+              "Rights asked", "Views at intake", "Likes at intake", "Record ID"]
 WISHLIST_TAB_TITLE = "Intake Staging"
 DOC_TITLES = {
     "master_doc": "Intake Master",
@@ -19,6 +22,7 @@ DOC_TITLES = {
     "design_doc": "Design Inspiration Bank",
     "personal_ig_doc": "Personal Instagram Inspiration",
     "scholarship_sheet": "Scholarship Tracker",
+    "ugc_sheet": "UGC Intake",
 }
 # destination key -> (config target key, kind)
 TARGET_FOR = {
@@ -28,6 +32,7 @@ TARGET_FOR = {
     "personal_ig": ("personal_ig_doc", "doc"),
     "scholarships": ("scholarship_sheet", "sheet"),
     "inbox": ("master_doc", "master_only"),
+    "ugc": ("ugc_sheet", "ugc_sheet"),
 }
 
 
@@ -130,6 +135,22 @@ def scholarship_row(rec: dict) -> list[str]:
             sd.get("deadline", ""), sd.get("eligibility", ""), sd.get("required_materials", ""),
             sd.get("link", "") or rec["source"]["original_url"], "New", "", clip(sd.get("notes") or _insight(rec, 500), 500),
             rec["source"]["original_url"], _date(rec), rec["id"]]
+
+
+# ---------- UGC Intake (sheet, append-only)
+def ugc_row(rec: dict) -> list[str]:
+    s, m = rec["source"], rec["metrics"]
+    sd = rec["extraction"].get("structured_data", {})
+    duration = m.get("duration_s")
+    thumb = rec.get("artifacts", {}).get("thumbnail_url")
+    return [_date(rec), s.get("received_via", ""), s.get("received_from", ""), s.get("creator", ""),
+            s["original_url"], clip(rec["context"].get("caption_or_text", ""), 300),
+            f'=IMAGE("{thumb}")' if thumb else "", f"{duration}s" if duration is not None else "",
+            rec["extraction"].get("short_source_summary", ""), sd.get("feature", ""), sd.get("hook_line", ""),
+            f"{rec['extraction'].get('confidence', 0):.2f}", "new", "", "", "no",
+            "" if m.get("view_count") is None else str(m["view_count"]),
+            "" if m.get("like_count") is None else str(m["like_count"]),
+            rec["id"]]
 
 
 # ---------- Loose doc entries

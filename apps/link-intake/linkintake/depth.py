@@ -15,7 +15,7 @@ def infer(source_class: str, destination: str, instruction: str) -> dict:
     ins = instruction or ""
     if destination == "inbox":
         return {"visual": False, "transcript": False, "research": False, "llm": False}
-    visual = destination in {"wishlist", "design_inspo", "personal_ig"} or bool(_VISUAL.search(ins))
+    visual = destination in {"wishlist", "design_inspo", "personal_ig", "ugc"} or bool(_VISUAL.search(ins))
     transcript = destination in {"supplement_ideas", "scholarships"} or bool(_TEXT.search(ins)) or not _VISUAL.search(ins)
     research = destination == "wishlist" or bool(_RESEARCH.search(ins))
     if source_class in {"web_page", "google_workspace"}:

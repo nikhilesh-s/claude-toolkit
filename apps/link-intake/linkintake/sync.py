@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from . import config, destinations as D, store
 from .google_api import Google, GoogleError, OwnershipError, doc_text, doc_url, is_configured, sheet_url
@@ -75,6 +76,22 @@ def _entity_for(rec: dict):
     return ent
 
 
+def _upload_thumbnail(g: Google, rec: dict, folder: str) -> None:
+    """Best-effort: first frame JPEG if pipeline captured one, else the contact sheet. Never raises —
+    a failure is just a blank Thumbnail cell plus a note in rec['errors']."""
+    if not folder:
+        return
+    art = rec.get("artifacts", {})
+    path = next((Path(p) for p in (art.get("first_frame_path"), art.get("contact_sheet")) if p and Path(p).exists()), None)
+    if path is None:
+        return
+    try:
+        _, url = g.drive_upload_file(path, f"{rec['id']}.jpg", folder)
+        rec["artifacts"]["thumbnail_url"] = url
+    except Exception as exc:
+        rec["errors"].append(f"thumbnail: {type(exc).__name__}: {str(exc)[:200]}")
+
+
 def write_destination(g: Google, rec: dict, cfg: dict) -> dict:
     dest = rec["intent"]["destination"]
     key, kind = D.TARGET_FOR[dest]
@@ -98,6 +115,13 @@ def write_destination(g: Google, rec: dict, cfg: dict) -> dict:
         if not updated:
             g.doc_append_table_row(fid, row, D.WISHLIST_HEADER, tab_id=tab, link_columns=(8,))
         return {"remote_file_id": fid, "remote_ref": doc_url(fid, tab), "merged_row": updated}
+    if kind == "ugc_sheet":
+        if rec.get("export", {}).get("destination_sync", {}).get("status") == "synced":
+            return {"remote_file_id": fid, "remote_ref": sheet_url(fid)}
+        if not rec.get("artifacts", {}).get("thumbnail_url"):
+            _upload_thumbnail(g, rec, t.get("ugc_media_folder", ""))
+        g.sheet_append(fid, [D.ugc_row(rec)])
+        return {"remote_file_id": fid, "remote_ref": sheet_url(fid)}
     if kind == "sheet":
         if _sheet_has(g, fid, rec["id"]):
             return {"remote_file_id": fid, "remote_ref": sheet_url(fid)}

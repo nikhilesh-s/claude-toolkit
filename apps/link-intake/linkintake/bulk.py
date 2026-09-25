@@ -5,11 +5,14 @@ deleted or moved. Candidates live in ~/.link-intake/bulk/<run_id>/candidates.jso
 sequentially with a delay, resumes if interrupted, and never lets one failure stop the batch."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
 import subprocess
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -174,6 +177,117 @@ def discover_file(path: str) -> list[dict]:
         if not line or line.startswith("#"):
             continue
         items.append({"origin": "file", "container": Path(path).name, "title": "", "text": line})
+    return items
+
+
+# ---------- watched inbox: Slack + Gmail (dormant until Kai's Q3; no cron installed by this tool)
+def _cursor_path(name: str) -> Path:
+    return BULK_DIR / f"{name}-cursor.json"
+
+
+def _read_cursor(name: str, key: str, default: str = "") -> str:
+    p = _cursor_path(name)
+    if not p.exists():
+        return default
+    try:
+        return json.loads(p.read_text()).get(key, default)
+    except (json.JSONDecodeError, OSError):
+        return default
+
+
+def _write_cursor(name: str, key: str, value: str) -> None:
+    p = _cursor_path(name)
+    data = {}
+    if p.exists():
+        try:
+            data = json.loads(p.read_text())
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    data[key] = value
+    BULK_DIR.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2))
+
+
+def _slack_api(token: str, method: str, params: dict) -> dict:
+    """One Slack Web API call. Split out so tests can monkeypatch the HTTP layer entirely."""
+    url = f"https://slack.com/api/{method}?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        data = json.loads(r.read())
+    if not data.get("ok"):
+        raise RuntimeError(f"slack {method} failed: {data.get('error', 'unknown')}")
+    return data
+
+
+def discover_slack(channel_id: str, token: str, since_ts: str | None = None) -> list[dict]:
+    """Bot token, conversations.history, oldest= cursor. Read-only (one channel; no posting, no user token).
+    Cursor persisted at ~/.link-intake/bulk/slack-cursor.json, keyed by channel_id; only advanced on success,
+    so an expired token or a failed call leaves the cursor untouched and nothing is lost."""
+    if since_ts is None:
+        since_ts = _read_cursor("slack", channel_id, "0")
+    data = _slack_api(token, "conversations.history", {"channel": channel_id, "oldest": since_ts, "limit": "200"})
+    messages = data.get("messages", [])
+    names: dict[str, str] = {}
+    items = []
+    latest = since_ts
+    for m in messages:
+        ts = m.get("ts", "0")
+        if float(ts) > float(latest):
+            latest = ts
+        name = m.get("username", "")
+        uid = m.get("user", "")
+        if not name and uid:
+            if uid not in names:
+                try:
+                    prof = _slack_api(token, "users.info", {"user": uid}).get("user", {}).get("profile", {})
+                    names[uid] = prof.get("display_name") or prof.get("real_name") or uid
+                except Exception:
+                    names[uid] = uid
+            name = names[uid]
+        items.append({"origin": "slack", "container": channel_id, "title": name, "text": m.get("text", "")})
+    _write_cursor("slack", channel_id, latest)
+    return items
+
+
+def _gmail_plain_text(payload: dict) -> str:
+    """First text/plain part, base64url-decoded. Depth-first over payload.parts."""
+    def walk(part: dict) -> str:
+        if part.get("mimeType") == "text/plain" and part.get("body", {}).get("data"):
+            return part["body"]["data"]
+        for sub in part.get("parts") or []:
+            found = walk(sub)
+            if found:
+                return found
+        return ""
+    data = walk(payload)
+    if not data:
+        return ""
+    return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("utf-8", errors="replace")
+
+
+def discover_gmail(label: str, since_history_id: str | None = None, google=None) -> list[dict]:
+    """Gmail API, messages.list scoped to `label` + messages.get(format=full) for the plain-text part and
+    the From header. Reuses the existing personal Google token (google_api.Google); needs the gmail.readonly
+    scope added by google-auth (re-consent required for a token authorized before that scope existed).
+    Cursor (last historyId seen) persisted at ~/.link-intake/bulk/gmail-cursor.json, keyed by label."""
+    from . import google_api
+    g = google or google_api.Google()
+    if since_history_id is None:
+        since_history_id = _read_cursor("gmail", label, "")
+    listing = g.request("GET", "https://gmail.googleapis.com/gmail/v1/users/me/messages", params={"labelIds": label, "maxResults": 100})
+    items = []
+    latest = since_history_id
+    for m in listing.get("messages", []):
+        msg = g.request("GET", f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{m['id']}", params={"format": "full"})
+        history_id = msg.get("historyId", "")
+        if since_history_id and history_id and int(history_id) <= int(since_history_id):
+            continue  # already seen last sweep
+        headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
+        items.append({"origin": "gmail", "container": label, "title": headers.get("From", ""), "text": _gmail_plain_text(msg.get("payload", {}))})
+        if history_id and (not latest or int(history_id) > int(latest)):
+            latest = history_id
+    if latest:
+        _write_cursor("gmail", label, latest)
     return items
 
 
@@ -406,23 +520,36 @@ def review_update(run: dict, cid: str, *, approve: bool = False, dest: str = "",
 
 
 # ---------- run
-def run_batch(run: dict, *, dry_run: bool = True, limit: int = 0, delay: float = 2.0, statuses=("ready", "approved")) -> dict:
-    """Sequential, resumable. Each candidate goes through pipeline.ingest(save=True) exactly like Raycast."""
+INBOX_ORIGINS = ("slack", "gmail")
+
+
+def run_batch(run: dict, *, dry_run: bool = True, limit: int = 0, delay: float = 2.0, statuses=("ready", "approved"),
+              dest_override: str = "") -> dict:
+    """Sequential, resumable. Each candidate goes through pipeline.ingest(save=True) exactly like Raycast.
+    `dest_override` (the bulk `run --dest` flag) forces every processed candidate's destination, e.g. `ugc`
+    for a Slack/Gmail sweep, overriding whatever infer() guessed from CONTAINER_HINTS/TEXT_HINTS."""
     from . import pipeline
     todo = [c for c in run["candidates"] if c["status"] in statuses]
     if limit:
         todo = todo[:limit]
+    if dest_override:
+        for c in todo:
+            c["inferred_destination"] = dest_override
     report = {"run_id": run["run_id"], "dry_run": dry_run, "processed": 0, "saved": 0, "merged": 0, "possible_duplicates": 0,
               "already_ingested": summary(run["candidates"])["existing"], "failed": 0, "google_pending": 0, "skipped": summary(run["candidates"])["skip"], "items": []}
     if dry_run:
         report["would_process"] = [{"id": c["id"], "url": c["canonical_url"], "destination": c["inferred_destination"], "instruction": c["inferred_instruction"]} for c in todo]
         return report
     for c in todo:
+        kwargs = {}
+        if c["source_origin"] in INBOX_ORIGINS:  # watched-inbox provenance: set received_via/received_from on the record
+            kwargs["received_via"] = c["source_origin"]
+            kwargs["received_from"] = (c.get("provenance") or [{}])[0].get("title", "")
         try:
             rec = pipeline.ingest(c["original_url"], c["inferred_destination"], c["inferred_instruction"], save=True,
                                   batch={"run_id": run["run_id"], "candidate_id": c["id"], "source_origin": c["source_origin"],
                                          "source_container": c["source_container"], "source_context": c["source_context"],
-                                         "instruction_origin": c.get("instruction_origin", "inferred")})
+                                         "instruction_origin": c.get("instruction_origin", "inferred")}, **kwargs)
             res = rec.get("destination_resolution") or {}
             ex = rec.get("export") or {}
             c.update({"status": "failed" if rec["status"] == "failed" else "done", "record_id": rec["id"], "record_status": rec["status"],

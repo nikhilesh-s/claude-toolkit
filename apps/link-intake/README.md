@@ -9,6 +9,86 @@ Raycast "Intake Link"  ──►  linkintake ingest  ──►  router ──►
                        ◄──  linkintake save    ◄──  local record + Intake Master row + destination export + cleanup
 ```
 
+## UGC destination (voiceos-intake)
+
+`ugc` is a destination the VoiceOS team added (vendored here from `nikhilesh-s/claude-toolkit`;
+see `voiceos-intake/UPSTREAM.md` for the upstream PR). It's for Reels other people send in about
+VoiceOS — one row per Reel in a Google Sheet ("UGC Intake") for the content team to triage. Unlike
+every other destination it's append-only (a row is never edited after it's written) and it's
+designed for the same Reel arriving more than once: a second person sending it appends their name
+to the existing row instead of erroring or creating a duplicate.
+
+**Setup**, in addition to the base install above:
+```bash
+./setup.sh
+linkintake google-auth                # if not already done for the other destinations
+linkintake google-setup               # also creates the "UGC Intake" sheet and "UGC Intake media" Drive folder
+```
+
+**CLI path:**
+```bash
+linkintake --json ingest <url> --dest ugc --save --received-via voice|slack|gmail|file --received-from "<name>"
+```
+`--received-via` and `--received-from` are optional (default `""`) but that's how the sheet's
+"Received via" / "Sent by" columns get filled in.
+
+**Duplicate behavior:** ingesting a Reel already saved to `ugc` does not raise or re-export. It
+loads the existing record, appends `--received-from` to that record's `senders[]` if new, saves
+locally, and `--json` prints `{"result": "duplicate", "id": "<id>", "senders": [...]}` and exits 0.
+This is on purpose and diverges from every other destination, where a duplicate raises `DuplicateError`,
+`--json` prints `{"error": ..., "duplicate": true}`, and the process exits 3.
+
+**Voice path:** Kshanix, branch `intake` — say "intake this" with a link on the clipboard. It reads
+the first `https?://` token off the pasteboard and fires `linkintake --json ingest <url> --dest ugc
+--save --received-via voice` detached. With no link on the clipboard, it never launches
+`linkintake`; the voice response is "No link on the clipboard."
+
+**What lands in each column:** Date received, Received via, Sent by, Creator, URL, Caption
+(clipped to 300 chars), Thumbnail (`=IMAGE(...)` of the first frame, uploaded to Drive), Duration,
+What it shows / VoiceOS feature shown / Hook line (from the LLM extraction), Confidence, Status
+(always `new` at intake), Owner, Notes, Rights asked (always `no` at intake), Views at intake,
+Likes at intake, Record ID.
+
+**Known limits:**
+- View/like counts are often blank — Media Unlocker doesn't always return them, and a blank stays
+  blank rather than showing a false `0`.
+- The thumbnail only uploads when `ugc_media_folder` is configured (via `google-setup`); without
+  it the row still gets written, just with a blank Thumbnail cell.
+- This only runs on the Mac that has the Instagram cookies and the Claude login — same constraint
+  as every other destination, not new to `ugc`.
+
+**Watched inbox (dormant until Kai's Q3):** `bulk` has two more sources besides
+`reminders`/`notes`/`manifest`/`file:<path>`: `slack` and `gmail`. Both read-only, both swept on
+demand by `linkintake bulk scan --sources slack,gmail` (see [Bulk ingest](#bulk-ingest) below for
+`scan`/`review`/`run`) — nothing runs on a schedule unless you add the cron line yourself.
+
+- `slack` reads one channel with a bot token (`conversations.history`) — no posting, no user
+  token. Config: `inbox.slack_channel` (the channel *id*, not its name) and
+  `inbox.slack_token_env` (defaults to `LINKINTAKE_SLACK_TOKEN`; the token itself lives in that
+  env var, never in `config.json`).
+- `gmail` reads one label with the existing personal Google token (`messages.list` +
+  `messages.get`). Config: `inbox.gmail_label`. **Needs re-consent**: this adds the
+  `gmail.readonly` scope to `google_auth.SCOPES`, so a token authorized before this change does
+  not have it — run `linkintake google-auth` again (safe to re-run; it just re-prompts consent).
+- Both sources are inert until configured: `inbox.slack_channel` / `inbox.gmail_label` default
+  `""`, and `--sources slack` / `--sources gmail` refuse with a clear error until you set them
+  (`linkintake config --set inbox.slack_channel=C0123ABCD`, `... inbox.gmail_label=Label_123`).
+  Deliberately dormant: whether creators actually use a Slack channel or a shared inbox at all is
+  Kai's Q3 (`voiceos/product-experiments/intake/SPEC.md` §13), still unanswered.
+- Each source keeps its own cursor (`~/.link-intake/bulk/slack-cursor.json`,
+  `.../gmail-cursor.json`) so a sweep only fetches what's new since the last one; a failed sweep
+  (expired token, etc.) leaves the cursor untouched so nothing is skipped.
+- Route everything from a sweep straight to the UGC sheet with `bulk run --dest ugc --execute`
+  (forces the destination for every candidate the run processes, overriding whatever `bulk`'s
+  usual inference guessed). Records made this way get `received_via` (`slack`/`gmail`) and
+  `received_from` (the Slack display name / the `From` header) set automatically.
+- **To turn the hourly sweep on** once Q3 says yes: add a line like this to Nik's Mac (`crontab
+  -e`), adjusting the path to `linkintake`:
+  ```
+  0 * * * * LINKINTAKE_SLACK_TOKEN=xoxb-... ~/.local/bin/linkintake bulk scan --sources slack,gmail --json >> ~/.link-intake/bulk/sweep.log 2>&1 && ~/.local/bin/linkintake bulk run --dest ugc --execute --json >> ~/.link-intake/bulk/sweep.log 2>&1
+  ```
+  Not installed by this tool — nobody's cron is touched automatically.
+
 ## Install (this Mac)
 
 ```bash
@@ -145,12 +225,15 @@ the Merge into Existing / Keep as Separate Item actions in Raycast. History show
 ## Bulk ingest
 
 `linkintake bulk scan` reads Apple Reminders (AppleScript, read only, all lists), Apple Notes (notes whose body
-contains a link; the line with the URL plus the previous line is its context), the Reel regression manifest, and
-`file:<path>` (one URL per line, optional text). Links are canonicalized, deduped by URL + inferred destination +
-instruction (provenance kept), checked against existing intakes, and scored: list/folder name first, wording
-near the URL second, generic fallback last. Both confidences must be >= 0.80 to be `ready`; everything else is
-`review`. `bulk review` approves/edits/skips; `bulk run` is a dry-run until `--execute`, then processes
-sequentially with a delay, saving progress after every item (resumable), and never stops on a failed link.
+contains a link; the line with the URL plus the previous line is its context), the Reel regression manifest,
+`file:<path>` (one URL per line, optional text), and — dormant until configured, see
+[Watched inbox](#ugc-destination-voiceos-intake) above — `slack` and `gmail`. Links are canonicalized, deduped
+by URL + inferred destination + instruction (provenance kept), checked against existing intakes, and scored:
+list/folder name first, wording near the URL second, generic fallback last. Both confidences must be >= 0.80 to
+be `ready`; everything else is `review`. `bulk review` approves/edits/skips; `bulk run` is a dry-run until
+`--execute`, then processes sequentially with a delay, saving progress after every item (resumable), and never
+stops on a failed link. `bulk run --dest <destination>` forces that destination for every candidate the run
+processes (e.g. `--dest ugc` for a Slack/Gmail sweep, so a Reel isn't routed to `personal_ig` by inference).
 Records carry `batch` provenance (run id, source origin, list/note) and History shows it.
 Queue files: `~/.link-intake/bulk/<run_id>/candidates.json`.
 
@@ -185,6 +268,8 @@ uv run python tests/test_entities.py # offline: wishlist/scholarship merge matri
 uv run python tests/test_history.py  # offline: history rows, re-save refused, failed record never exports
 uv run python tests/test_bulk.py     # offline: bulk dedupe/inference/review/run with fixtures
 uv run python tests/test_reminders.py # offline: weekly sweep, quota deferral, reconciliation, clear, LaunchAgent
+uv run python tests/test_ugc.py      # offline: ugc destination, row, metrics, senders, thumbnail
+uv run python tests/test_inbox.py    # offline: slack/gmail discoverers, cursors, --dest override (fixtures, HTTP layer monkeypatched)
 tests/smoke_real.sh                  # the one E2E test: Reel -> personal_ig -> extract -> save (local, export pending)
 tests/regression_reels.sh            # all 10 wishlist Reels as Wishlist intents (cache reused, nothing deleted)
 ```

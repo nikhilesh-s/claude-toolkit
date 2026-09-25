@@ -29,6 +29,8 @@ DEFAULTS: dict = {
             "personal_ig_doc": "",
             "scholarships_folder": "",
             "scholarship_sheet": "",
+            "ugc_sheet": "",
+            "ugc_media_folder": "",
         },
     },
     "media_unlocker": {
@@ -49,6 +51,13 @@ DEFAULTS: dict = {
         "lists": [],  # empty = every Reminders list
         "include_completed": False,
         "max_items_per_run": 25,  # Claude extractions per sweep; the rest defer to the next one
+    },
+    # Watched inbox (bulk sources "slack"/"gmail"; SPEC.md §4.3). Dormant: no cron installed by this tool,
+    # and both are empty until Kai answers Q3 (does a Slack channel or shared inbox for creators even exist).
+    "inbox": {
+        "slack_channel": "",  # Slack channel id (e.g. "C0123ABCD"), not a name
+        "slack_token_env": "LINKINTAKE_SLACK_TOKEN",  # bot token read from this env var, never stored here
+        "gmail_label": "",  # Gmail label name or id creators' forwards land under
     },
 }
 

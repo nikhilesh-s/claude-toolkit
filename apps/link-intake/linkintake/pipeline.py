@@ -16,19 +16,40 @@ class DuplicateError(RuntimeError):
     pass
 
 
+def _merge_ugc_duplicate(existing_id: str, received_from: str) -> dict:
+    """Same Reel arriving again for the `ugc` destination: append the new sender locally,
+    never re-export (§6). Shared by ingest() and save_record()."""
+    try:
+        existing = store.load(existing_id)
+    except FileNotFoundError:
+        raise DuplicateError(f"Duplicate of {existing_id}, but that record's file is gone (index is append-only)")
+    existing.setdefault("senders", [])  # records saved before this field existed
+    if received_from and received_from not in existing["senders"]:
+        existing["senders"].append(received_from)
+    store.save(existing)
+    existing["duplicate"] = True
+    return existing
+
+
 def ingest(url: str, destination: str, instruction: str, *, save: bool = False, force: bool = False,
-           refresh: bool = False, batch: dict | None = None) -> dict:
+           refresh: bool = False, batch: dict | None = None, received_via: str = "", received_from: str = "") -> dict:
     dest = normalize_destination(destination)
     canonical = canonicalize(url)
     cls, platform = classify(canonical)
     rec = new_record(original_url=url.strip(), canonical_url=canonical, source_class=cls, platform=platform,
                      destination=dest, instruction=instruction.strip())
+    rec["source"]["received_via"] = received_via
+    rec["source"]["received_from"] = received_from
+    if received_from:
+        rec["senders"] = [received_from]
     if batch:
         rec["batch"] = batch  # bulk-ingest provenance: run id, candidate, source origin/container/context
     rec["duplicate_of"] = [e["id"] for e in store.find_by_url(canonical)]
     exact = store.find_exact(rec["dedupe_key"])
     rec["exact_duplicate"] = exact["id"] if exact else ""
     if exact and save and not force:
+        if dest == "ugc":
+            return _merge_ugc_duplicate(exact["id"], received_from)
         raise DuplicateError(f"Already saved as {exact['id']} (same URL + destination + instruction). Use --force to save anyway.")
 
     flags = depth.infer(cls, dest, instruction)
@@ -154,6 +175,10 @@ def _via_media_unlocker(rec: dict, url: str, need_visual: bool, images: list[Pat
                 info.get("upload_date") or meta.get("date"), info.get("description") or info.get("caption") or meta.get("description") or meta.get("caption"))
     if info.get("duration"):
         rec["context"]["caption_or_text"] += f"\n\n[duration: {info['duration']}s]"
+    rec["metrics"]["like_count"] = info.get("like_count")
+    rec["metrics"]["view_count"] = info.get("view_count")
+    rec["metrics"]["duration_s"] = info.get("duration")
+    rec["metrics"]["captured_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     if need_visual:
         sheet = mu.contact_sheet(jid)
         store.PREVIEWS.mkdir(parents=True, exist_ok=True)
@@ -173,6 +198,8 @@ def _via_media_unlocker(rec: dict, url: str, need_visual: bool, images: list[Pat
             images.extend(frames[:12])
             rec["processing"]["visual_input"] = f"{min(len(frames), 12)} frames"
             rec["artifacts"]["frames"] = _frame_times(jid, frames[:12], info.get("duration"))
+            if rec["intent"]["destination"] == "ugc":
+                rec["artifacts"]["first_frame_path"] = str(frames[0])  # a clean single shot beats the sheet as a thumbnail
         else:
             images.append(raw)
             rec["processing"]["visual_input"] = "contact sheet"
@@ -222,6 +249,11 @@ def save_record(record_id: str, force: bool = False) -> dict:
     if rec.get("saved_at") and not force:
         raise DuplicateError(f"{record_id} is already saved. Use --force to export it again.")
     if rec.get("exact_duplicate") and not force:
+        if rec["intent"]["destination"] == "ugc":
+            merged = _merge_ugc_duplicate(rec["exact_duplicate"], rec["source"]["received_from"])
+            (store.PENDING / f"{rec['id']}.json").unlink(missing_ok=True)  # this rec is not the canonical copy; drop its own pending file
+            rec["cleanup"] = cleanup.cleanup_record(rec)
+            return merged
         raise DuplicateError(f"Already saved as {rec['exact_duplicate']} (same URL + destination + instruction). Use --force to save anyway.")
     no_extraction = rec["processing"].get("llm_backend") in ("none", "") and not rec["extraction"].get("focused_result") and rec["intent"]["destination"] != "inbox"
     if no_extraction and rec["status"] != "failed":

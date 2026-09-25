@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 
 from . import config
@@ -24,8 +25,10 @@ TOKEN_PATH = GOOGLE_DIR / "token.json"
 DEFAULT_TIMEOUT = 15
 USERINFO = "https://www.googleapis.com/oauth2/v3/userinfo"
 DRIVE_FILES = "https://www.googleapis.com/drive/v3/files"
+DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
 # Every mutating Docs/Sheets endpoint this client uses names its file in the path; a Drive create names it in body.parents.
 _WRITE_ID = re.compile(r"^https://(?:docs\.googleapis\.com/v1/documents|sheets\.googleapis\.com/v4/spreadsheets)/([A-Za-z0-9_-]+)[:/]")
+_SHARE_ID = re.compile(r"^https://www\.googleapis\.com/drive/v3/files/([A-Za-z0-9_-]+)/permissions$")  # ugc thumbnail link-sharing
 
 
 class GoogleError(RuntimeError):
@@ -64,10 +67,10 @@ def owner_emails(meta: dict) -> list[str]:
 def write_targets(url: str, body: dict | None) -> list[str]:
     """File ids a mutating request touches. An endpoint we do not recognise is refused (fail closed)."""
     base = url.split("?")[0]
-    m = _WRITE_ID.match(base)
+    m = _WRITE_ID.match(base) or _SHARE_ID.match(base)
     if m:
         return [m.group(1)]
-    if base == DRIVE_FILES:  # create: the parent must be ours; a root-level file lands in the verified identity's own Drive
+    if base in (DRIVE_FILES, DRIVE_UPLOAD):  # create/upload: the parent must be ours; a root-level file lands in the verified identity's own Drive
         return list((body or {}).get("parents") or [])
     raise OwnershipError(f"Refusing unrecognized Google write endpoint {base}. Google write blocked.")
 
@@ -138,16 +141,34 @@ class Google:
         TOKEN_PATH.chmod(0o600)
         return self._access
 
-    def request(self, method: str, url: str, body: dict | None = None, params: dict | None = None) -> dict:
+    def _guard(self, method: str, url: str, body: dict | None) -> None:
         if method != "GET":  # the single write chokepoint: identity first, then ownership of every file touched
             self.verify_identity()
             for fid in write_targets(url, body):
                 self.assert_owned(fid)
+
+    def request(self, method: str, url: str, body: dict | None = None, params: dict | None = None) -> dict:
+        self._guard(method, url, body)
         if params:
             url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params, doseq=True)
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(url, data=data, method=method, headers={
             "Authorization": "Bearer " + self.token(), "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                raw = r.read()
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as e:
+            raise GoogleError(e.code, e.read().decode(errors="ignore")) from None
+        except Exception as e:  # timeouts, DNS, offline
+            raise GoogleError(0, f"unreachable: {type(e).__name__}: {e}") from None
+
+    def request_raw(self, method: str, url: str, body: bytes, content_type: str, *, meta: dict) -> dict:
+        """Like `request` but for a pre-built body (e.g. multipart) instead of a JSON dict. `meta` is the
+        JSON metadata inside that body; the ownership guard reads its `parents` exactly as `request` does."""
+        self._guard(method, url, meta)
+        req = urllib.request.Request(url, data=body, method=method, headers={
+            "Authorization": "Bearer " + self.token(), "Content-Type": content_type})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 raw = r.read()
@@ -179,6 +200,22 @@ class Google:
         if parent:
             body["parents"] = [parent]
         return self.request("POST", "https://www.googleapis.com/drive/v3/files", body=body, params={"fields": "id"})["id"]
+
+    def drive_upload_file(self, path: Path, name: str, parent: str, mime: str = "image/jpeg") -> tuple[str, str]:
+        """One hand-built multipart/related upload (metadata + bytes), then make it link-readable.
+        Returns (file_id, view_url)."""
+        boundary = f"linkintake-{uuid.uuid4().hex}"
+        meta = {"name": name, "parents": [parent]}
+        body = (
+            f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".encode() + json.dumps(meta).encode() +
+            f"\r\n--{boundary}\r\nContent-Type: {mime}\r\n\r\n".encode() + path.read_bytes() +
+            f"\r\n--{boundary}--\r\n".encode())
+        res = self.request_raw("POST", DRIVE_UPLOAD + "?uploadType=multipart&fields=id",
+                               body, f"multipart/related; boundary={boundary}", meta=meta)
+        file_id = res["id"]
+        self.request("POST", f"https://www.googleapis.com/drive/v3/files/{file_id}/permissions",
+                     body={"role": "reader", "type": "anyone"})
+        return file_id, f"https://drive.google.com/uc?id={file_id}"
 
     def drive_meta(self, file_id: str) -> dict:
         return self.request("GET", f"https://www.googleapis.com/drive/v3/files/{file_id}",

@@ -21,10 +21,12 @@ TARGETS = {
     "college_folder": ("College Applications folder", FOLDER_MIME),
     "media_folder": ("Media folder", FOLDER_MIME),
     "scholarships_folder": ("Scholarships folder", FOLDER_MIME),
+    "ugc_sheet": ("UGC Intake", SHEET_MIME),
+    "ugc_media_folder": ("UGC Intake media folder", FOLDER_MIME),
 }
 # Names of intake files (current and G-Switch era). Only used to list foreign copies the token can see.
 INTAKE_NAME_HINTS = ("Intake Master", "Intake Inbox", "Scholarships Intake", "Scholarship Tracker", "Supplement Inspiration Bank",
-                     "Design Inspiration Bank", "Personal Instagram Inspiration", "Supplemental Reel", "Content Bank")
+                     "Design Inspiration Bank", "Personal Instagram Inspiration", "Supplemental Reel", "Content Bank", "UGC Intake")
 
 
 def _url(fid: str, mime: str) -> str:

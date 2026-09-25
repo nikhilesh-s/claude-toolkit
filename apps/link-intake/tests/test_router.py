@@ -15,6 +15,12 @@ def main() -> None:
     assert canonicalize("https://example.com/article/?utm_source=x&id=5") == "https://example.com/article?id=5"
     assert canonicalize("https://docs.google.com/document/d/ABC/edit?tab=t.0") == "https://docs.google.com/document/d/ABC/edit?tab=t.0"
 
+    # /reel/ vs /reels/ and the instagr.am short host all collapse to the same canonical URL
+    a = canonicalize("https://www.instagram.com/reel/ABC123/?igsh=xyz")
+    b = canonicalize("https://www.instagram.com/reels/ABC123/")
+    c = canonicalize("https://instagr.am/reel/ABC123")
+    assert a == b == c == "https://www.instagram.com/reel/ABC123/"
+
     assert classify(REEL) == ("social_media", "instagram")
     assert classify("https://www.tiktok.com/@u/video/1") == ("social_media", "tiktok")
     assert classify("https://x.com/a/status/1") == ("social_media", "x")
